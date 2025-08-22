@@ -1,0 +1,10 @@
+"move_current_tab_to_recent": {
+    "suggested_key": {
+        "default": "Ctrl+8"
+    },
+    "description": "move current tab to right of previously focused tab"
+},
+
+
+
+// "default_popup": "popup.html",

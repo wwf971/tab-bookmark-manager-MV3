@@ -1,0 +1,12 @@
+
+node_modules/
+# including deeply nested node_modules
+
+*.zip
+
+# configuration files
+# user.config.js
+user.config.0.js
+
+info|git-command.sh
+# git add .

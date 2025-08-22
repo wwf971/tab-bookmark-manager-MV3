@@ -1,0 +1,284 @@
+<!-- 相比上一版本, 从vanilla js 改为 vue 3-->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>Upload Tab Info</title>
+    <script src="js/axios.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/vue.global.min.js"></script>
+    <style>
+        body {
+            width: 300px;
+            min-height: 400px;
+            max-height: 600px;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        .container {
+            min-height: 400px;
+            height: 100%;
+            max-height: 600px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            justify-content: flex-start;
+            align-items: flex-start;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+        #app {
+            width: 100%;
+            height: 100%;
+            min-height: 400px;
+        }
+        .radio-group {
+            margin: 10px 0;
+            display: flex;
+            gap: 15px;
+        }
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+        }
+        .tags-section {
+            margin: 10px 0;
+            width: 100%;
+        }
+        .tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .tag-checkbox {
+            display: none;
+        }
+        .tag-label {
+            display: inline-block;
+            padding: 5px 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .tag-checkbox:checked + .tag-label {
+            background-color: #007bff;
+            color: white;
+        }
+        .tag-input-container {
+            display: flex;
+            gap: 8px;
+            position: relative;
+            width: 100%;
+        }
+        #tagInput {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .button {
+            padding: 6px 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .button.refresh {
+            padding: 6px;
+            background-color: #6c757d;
+        }
+        .button.refresh:hover {
+            background-color: #5a6268;
+        }
+        .suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            max-height: 150px;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        .suggestion-item {
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+        .suggestion-item:hover {
+            background-color: #f0f0f0;
+        }
+        .options-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 5px;
+        }
+        .options-group label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .options-group input[type="checkbox"] {
+            margin: 0;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .status.success {
+            background-color: #dff0d8;
+            color: #3c763d;
+        }
+        .status.error {
+            background-color: #f2dede;
+            color: #a94442;
+        }
+        .url-display {
+            background-color: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+            margin-bottom: 0px;
+            word-break: break-all;
+            font-family: monospace;
+            font-size: 12px;
+            color: #6c757d;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .url-display-group {
+            margin-bottom: 5px;
+            width: 100%;
+        }
+        .url-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .url-label {
+            font-size: 12px;
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 4px;
+        }
+        .settings-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 2px 6px;
+            font-size: 14px;
+            border-radius: 4px;
+        }
+        .settings-button:hover {
+            background-color: #f0f0f0;
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+        .modal-content {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 400px;
+        }
+        .url-settings-group {
+            margin-bottom: 15px;
+        }
+        .url-settings-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .url-settings-group input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .url-source-radio {
+            margin-bottom: 15px;
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .modal-buttons button {
+            padding: 6px 12px;
+        }
+        .comment-input-container {
+            margin: 10px 0;
+            width: 100%;
+        }
+        .comment-input-container input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .upload-buttons {
+            display: flex;
+            gap: 8px;
+            width: 100%;
+        }
+        .upload-buttons button {
+            flex: 1;
+            font-size: 12px;
+            padding: 8px 4px;
+            white-space: nowrap;
+        }
+        .cache-button {
+            background-color: #6c757d !important;
+        }
+        .cache-button:hover {
+            background-color: #5a6268 !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="app"></div>
+    <script src="js/vue.global.min.js"></script>
+    <script src="popup.js"></script>
+</body>
+</html> 
