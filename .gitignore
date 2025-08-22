@@ -1,6 +1,7 @@
 
 node_modules/
 # including deeply nested node_modules
+./dist/
 
 *.zip
 
