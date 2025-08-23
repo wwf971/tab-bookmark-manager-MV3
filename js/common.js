@@ -14,8 +14,10 @@ export async function loadUserConfig() {
     if (userConfig) return userConfig; // Return cached config if already loaded
     
     try {
-        // Try to import from _user.config.js first (user-specific settings)
-        const { userConfig: config } = await import('../vue-project/_user.config.js');
+        // try to import from _user.config.js first (user-specific settings)
+        const filePathConfig = '../vue-project/' + '_user.config.js';
+            // use string concatenation to avoid build-time resolution
+        const { userConfig: config } = await import(filePathConfig);
         userConfig = config;
         console.log('Loaded configuration from _user.config.js');
         return userConfig;
