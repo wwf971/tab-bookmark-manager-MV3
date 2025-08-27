@@ -158,6 +158,7 @@ watch(() => props.modelValue, (newValue) => {
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  padding: 12px;
 }
 
 .close-button {
@@ -179,7 +180,7 @@ watch(() => props.modelValue, (newValue) => {
 }
 
 .modal-body {
-  padding: 20px 24px;
+  padding: 0;
 }
 
 .login-message {

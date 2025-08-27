@@ -855,7 +855,7 @@ const requestUploadTabs = async (upload_as_type='url', upload_manner='one_by_one
         if(upload_manner === 'one_by_one'){
             let successCount = 0
             let failCount = 0
-            const totalTabs = tabsToUpload.length
+            const tabsOpenNumTotal = tabsToUpload.length
             const successfulTabs = []
             const failedTabs = []
             
@@ -864,7 +864,7 @@ const requestUploadTabs = async (upload_as_type='url', upload_manner='one_by_one
                 const currentTabNum = i + 1
                 
                 // Update status to show current progress
-                // status.value = `Uploading tab ${currentTabNum}/${totalTabs}: ${tab.title.substring(0, 50)}...`
+                // status.value = `Uploading tab ${currentTabNum}/${tabsOpenNumTotal}: ${tab.title.substring(0, 50)}...`
                 // statusClass.value = ''
 
                 try {
@@ -888,14 +888,14 @@ const requestUploadTabs = async (upload_as_type='url', upload_manner='one_by_one
                         successfulTabs.push(tab)
                         
                         // Update intermediate status
-                        status.value = `SUCCESS: ${successCount}/${totalTabs} FAIL: ${failCount}/${totalTabs}`
+                        status.value = `SUCCESS: ${successCount}/${tabsOpenNumTotal} FAIL: ${failCount}/${tabsOpenNumTotal}`
                         statusClass.value = successCount > 0 ? 'success' : ''
                     } else {
                         failCount++
                         failedTabs.push({ tab, error: result.message })
                         
                         // Update intermediate status
-                        status.value = `Progress: ${successCount}/${totalTabs} uploaded, ${failCount}/${totalTabs} failed`
+                        status.value = `Progress: ${successCount}/${tabsOpenNumTotal} uploaded, ${failCount}/${tabsOpenNumTotal} failed`
                         statusClass.value = failCount > 0 ? 'error' : ''
                     }
                 } catch (error) {
@@ -903,7 +903,7 @@ const requestUploadTabs = async (upload_as_type='url', upload_manner='one_by_one
                     failedTabs.push({ tab, error: error.message })
                     
                     // Update intermediate status
-                    status.value = `Progress: ${successCount}/${totalTabs} uploaded, ${failCount}/${totalTabs} failed`
+                    status.value = `Progress: ${successCount}/${tabsOpenNumTotal} uploaded, ${failCount}/${tabsOpenNumTotal} failed`
                     statusClass.value = 'error'
                 }
                 
@@ -915,7 +915,7 @@ const requestUploadTabs = async (upload_as_type='url', upload_manner='one_by_one
             
             // Final status update
             if (failCount === 0) {
-                status.value = `SUCCESS: ${successCount}/${totalTabs} tabs uploaded successfully!`
+                status.value = `SUCCESS: ${successCount}/${tabsOpenNumTotal} tabs uploaded successfully!`
                 statusClass.value = 'success'
                 
                 if (closeTabAfterUpload.value) {
@@ -930,10 +930,10 @@ const requestUploadTabs = async (upload_as_type='url', upload_manner='one_by_one
                     }, 1000)
                 }
             } else if (successCount === 0) {
-                status.value = `FAILED: 0/${totalTabs} tabs uploaded. All uploads failed.`
+                status.value = `FAILED: 0/${tabsOpenNumTotal} tabs uploaded. All uploads failed.`
                 statusClass.value = 'error'
             } else {
-                status.value = `PARTIAL SUCCESS: ${successCount}/${totalTabs} tabs uploaded, ${failCount}/${totalTabs} failed.`
+                status.value = `PARTIAL SUCCESS: ${successCount}/${tabsOpenNumTotal} tabs uploaded, ${failCount}/${tabsOpenNumTotal} failed.`
                 statusClass.value = 'error'
                 
                 // Close only successful tabs

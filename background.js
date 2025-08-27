@@ -224,7 +224,7 @@ function showErrorPopup(tab, errorMessage) {
 let tabLastActiveIdGlobal = null;
 let windowLastActiveId = null;
 let tabActiveIdGlobal = null;
-let windowActiveIdGlobal = null;
+let windowCurrentIdGlobal = null;
 
 // recent tabs history per window (windowId -> [tabId1, tabId2, ...])
 // most recent tabs are at the beginning of the array
@@ -235,11 +235,11 @@ const MAX_RECENT_TABS = 10; // Keep track of last 10 tabs per window
 chrome.tabs.onActivated.addListener((activeInfo) => {
 	// store the previous active tab info
 	tabLastActiveIdGlobal = tabActiveIdGlobal;
-	windowLastActiveId = windowActiveIdGlobal;
+	windowLastActiveId = windowCurrentIdGlobal;
 	
 	// update current active tab info
 	tabActiveIdGlobal = activeInfo.tabId;
-	windowActiveIdGlobal = activeInfo.windowId;
+	windowCurrentIdGlobal = activeInfo.windowId;
 	
 	// update recent tabs history for this window
 	updateTabsRecent(activeInfo.windowId, activeInfo.tabId);

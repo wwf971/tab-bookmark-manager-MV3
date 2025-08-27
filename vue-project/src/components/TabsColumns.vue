@@ -8,7 +8,7 @@
       />
     </div>
 
-    <!-- Show message if no types are selected -->
+    <!-- show message if no types are selected -->
     <div v-if="activeColumns.length === 0" class="no-selection-message">
       <div class="message-content">
         <div class="icon">📂</div>
@@ -25,7 +25,7 @@
           <h3>Open Tabs</h3>
           <div class="column-stats">
             <span v-show="!searchState.isSearchActive">
-            {{ totalOpenTabs || 0 }} tab{{ (totalOpenTabs || 0) !== 1 ? 's' : '' }} in {{ (tabsOpenWindows || []).length }} window{{ (tabsOpenWindows || []).length !== 1 ? 's' : '' }}
+            {{ totalOpenTabs || 0 }} tab{{ (totalOpenTabs || 0) !== 1 ? 's' : '' }} in {{ (sessionsOpen || []).length }} window{{ (sessionsOpen || []).length !== 1 ? 's' : '' }}
             </span>
             <span v-show="searchState.isSearchActive">
               {{ searchState.tabsOpenSearchResults.length }} search result{{ searchState.tabsOpenSearchResults.length !== 1 ? 's' : '' }}
@@ -200,13 +200,13 @@ const tabsSearchStore = useTabsSearch()
 const networkRequest = useNetworkRequest()
 // Use TabsOpen store for open tabs data
 const tabsOpenStore = useTabsOpen()
-const { totalTabs: totalOpenTabs, tabsOpenWindows } = storeToRefs(tabsOpenStore)
+const { tabsOpenNumTotal: totalOpenTabs, sessionsOpen } = storeToRefs(tabsOpenStore)
 
 // Use TabsSearch store for search state
 const { searchState } = storeToRefs(tabsSearchStore)
 
 // Debug: log the values to see what's happening
-console.log('TabsColumns - totalOpenTabs:', totalOpenTabs.value, 'tabsOpenWindows:', tabsOpenWindows.value?.length)
+console.log('TabsColumns - totalOpenTabs:', totalOpenTabs.value, 'sessionsOpen:', sessionsOpen.value?.length)
 
 // Computed
 const activeColumns = computed(() => {
@@ -478,8 +478,6 @@ const serverUrlDisplay = computed(() => {
 
 /* Responsive adjustments */
 @media (max-width: 1200px) {
-
-  
   .column-header {
     padding: 6px;
   }

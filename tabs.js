@@ -13,17 +13,17 @@ function loadTabs() {
     
     // Get current window ID to identify the active tab in current window
     chrome.windows.getCurrent(currentWindow => {
-        const currentWindowId = currentWindow.id;
+        const windowCurrentId = currentWindow.id;
         
         // Query all tabs from all windows
         chrome.tabs.query({}, (allTabs) => {
             updateTabCount(allTabs.length);
             
             // Find the active tab in current window
-            const activeTabInCurrentWindow = allTabs.find(tab => tab.active && tab.windowId === currentWindowId);
+            const activeTabInCurrentWindow = allTabs.find(tab => tab.active && tab.windowId === windowCurrentId);
             
             // Other tabs (all tabs except the active one in current window)
-            const otherTabs = allTabs.filter(tab => !(tab.active && tab.windowId === currentWindowId));
+            const otherTabs = allTabs.filter(tab => !(tab.active && tab.windowId === windowCurrentId));
             
             // Place active tab of current window at the beginning
             if (activeTabInCurrentWindow) {

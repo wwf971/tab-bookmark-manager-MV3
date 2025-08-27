@@ -136,13 +136,13 @@ const { urlListsLoaded } = storeToRefs(tabsRemoteStore)
 
 // Use TabsOpen store for open tabs data
 const tabsOpenStore = useTabsOpen()
-const { totalTabs: totalOpenTabs, tabsOpenWindows } = storeToRefs(tabsOpenStore)
+const { tabsOpenNumTotal: totalOpenTabs, sessionsOpen } = storeToRefs(tabsOpenStore)
 
 // Use TabsSearch store for search state
 const { searchState } = storeToRefs(tabsSearchStore)
 
 // Debug: log the values to see what's happening
-console.log('TabsColumnsVirtual - totalOpenTabs:', totalOpenTabs.value, 'tabsOpenWindows:', tabsOpenWindows.value?.length)
+console.log('TabsColumnsVirtual - totalOpenTabs:', totalOpenTabs.value, 'sessionsOpen:', sessionsOpen.value?.length)
 
 // Upload modal state
 const showUploadModal = ref(false)

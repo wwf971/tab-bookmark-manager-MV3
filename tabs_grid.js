@@ -18,7 +18,7 @@ const cancelUploadUrlBtn = document.getElementById('cancel-upload-url');
 // initialize tabs when the DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     getRemoteAddress()
-    loadTabsAndWinOpen();
+    loadSessionsOpen();
     setupEventListeners();
     closeDuplicateTabs(); // Add this line
     setupItemSize();
@@ -40,7 +40,7 @@ function setupEventListeners() {
     });
     
     // Refresh button
-    refreshBtn.addEventListener('click', loadTabsAndWinOpen);
+    refreshBtn.addEventListener('click', loadSessionsOpen);
     
     // Save upload URL
     saveUploadUrlBtn.addEventListener('click', () => {
@@ -131,7 +131,7 @@ function setupChromeTabsListeners() {
         };
     };
     
-    const debouncedLoadTabs = debounce(loadTabsAndWinOpen, 300); // Debounced version of loadTabsAndWinOpen
+    const debouncedLoadTabs = debounce(loadSessionsOpen, 300); // Debounced version of loadSessionsOpen
     
     // Tab events that should trigger a complete reload
     chrome.tabs.onMoved.addListener((tabId, moveInfo) => {
@@ -309,10 +309,10 @@ function addNewTabToWindow(tab, windowElement) {
             
             // Update the tab count
             const tabCountElement = windowElement.querySelector('.tab-count');
-            const totalTabs = tabGrid.querySelectorAll('.tab-item').length;
+            const tabsOpenNumTotal = tabGrid.querySelectorAll('.tab-item').length;
             
             if (tabCountElement) {
-                tabCountElement.textContent = `${totalTabs} tab${totalTabs !== 1 ? 's' : ''}`;
+                tabCountElement.textContent = `${tabsOpenNumTotal} tab${tabsOpenNumTotal !== 1 ? 's' : ''}`;
             }
             
             console.log("pendingNewTabs:", pendingNewTabs)
@@ -376,7 +376,7 @@ function handleTabMoved(tabId, moveInfo) {
 }// Modified Tab activation handler that's aware of pending tabs
 
 // Load all windows and tabs
-function loadTabsAndWinOpen() {
+function loadSessionsOpen() {
     monitorActiveTabs();
 
     // Clear existing content
@@ -386,12 +386,12 @@ function loadTabsAndWinOpen() {
     chrome.windows.getAll({ populate: true }, (windows) => {
         // Get current window ID to identify the active window
         chrome.windows.getCurrent(currentWindow => {
-            const currentWindowId = currentWindow.id;
+            const windowCurrentId = currentWindow.id;
             
             // Process each window
             windows.forEach(window => {
                 // Create window container
-                const windowElement = createWindowElement(window, window.id === currentWindowId);
+                const windowElement = createWindowElement(window, window.id === windowCurrentId);
                 windowsContainer.appendChild(windowElement);
             });
         });

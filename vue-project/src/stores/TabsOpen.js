@@ -6,63 +6,68 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
   // Get select store instance
   const tabsSelectStore = useTabsSelect()
   // State
-  const tabsOpenWindows = ref([]) // Array of windows, each with tabs array containing isUiSelected property
-  const currentWindowId = ref(null)
-  
-  // Simple history structure: windowId -> { active: [tab], selected: [tabs], recent: [tabs] }
-  // All arrays contain references to actual tab objects from tabsOpenWindows
+  const sessionsOpen = ref([]) // Array of windows, each with tabs array containing isUiSelected property
+
+
+  const windowCurrentId = ref(null)
+  const windowCurrent = computed(() => {
+    return sessionsOpen.value.find(w => w.id === windowCurrentId.value)
+  })
+
+
+  // simple history structure: windowId -> { active: [tab], selected: [tabs], recent: [tabs] }
+  // all arrays contain references to actual tab objects from sessionsOpen
   const tabsOpenHistory = ref(new Map()) // windowId -> { active: [tab], selected: [tabs], recent: [tabs] }
   const isLoading = ref(false)
   const lastError = ref(null)
+
+  const tabsOpenUiSelected = [] // refs to tabs currently selected by user
   
-  // Track user-selected tabs for operations (tab objects, not IDs)
-  const tabsOpenUiSelected = []
-  
-  // Fast lookup map for tab objects (tabId -> { tab, windowId })
+  // fast lookup map for tab objects (tabId -> { tab, windowId })
   const tabsMapOpen = ref(new Map())
   
-  // Constants
+  // window position tracking for scroll monitoring (shared data only)
+  const windowPositions = ref(new Map()) // windowId -> { top: number, height: number }
+  
+  // constants
   const MAX_RECENT_TABS = 20
 
-  // Computed
-  const totalTabs = computed(() => {
-    return tabsOpenWindows.value.reduce((sum, window) => sum + window.tabs.length, 0)
+  // computed
+  const tabsOpenNumTotal = computed(() => {
+    return sessionsOpen.value.reduce((sum, window) => sum + window.tabs.length, 0)
   })
 
-  const currentWindow = computed(() => {
-    return tabsOpenWindows.value.find(w => w.id === currentWindowId.value)
-  })
-
-  // Methods
-  const loadTabsAndWinOpen = async () => {
-    console.log('loadTabsAndWinOpen().')
+  // fetch all open sessions of current browser
+  const loadSessionsOpen = async () => {
+    console.log('loadSessionsOpen().')
     console.warn('process.env.VUE_APP_IS_DEV:', process.env.VUE_APP_IS_DEV)
     isLoading.value = true
     lastError.value = null
     if(process.env.VUE_APP_IS_DEV){
       console.log("winHistory:", tabsOpenHistory.value)
-      console.log("tabsOpenWindows:", tabsOpenWindows.value)
+      console.log("sessionsOpen:", sessionsOpen.value)
       return;
     }
 
     try {
-      const [allWindows, currentWin] = await Promise.all([
+      const [allWindows, currentWindow] = await Promise.all([
         chrome.windows.getAll({ populate: true }),
         chrome.windows.getCurrent()
       ])
       
-      // console.log('loadTabsAndWinOpen(): Loaded', allWindows.length, 'windows, current window:', currentWin.id)
+      // console.log('loadSessionsOpen(): Loaded', allWindows.length, 'windows, current window:', currentWin.id)
       
       // Initialize tabs and history structure
       allWindows.forEach(window => {
         const tabActive = window.tabs.find(tab => tab.active)
-        // console.log(`loadTabsAndWinOpen(): Window ${window.id} has ${window.tabs.length} tabs, active tab:`, tabActive?.id)
+        // console.log(`loadSessionsOpen(): Window ${window.id} has ${window.tabs.length} tabs, active tab:`, tabActive?.id)
         
-        // Set active/last active properties on each tab
+
+        // set active/last active properties on each tab
         window.tabs.forEach(tab => {
           // Ensure tab has required properties
           tab.isActive = tabActive?.id === tab.id
-          tab.isLastActive = false  // Will be set when active changes
+          tab.isLastActive = false  // will be set when active changes
           tab.isBrowserSelected = tab.highlighted || false  // Chrome's highlighted property
           // Ensure isUiSelected property exists (TabsSelect store manages this, but provide default)
           if (tab.isUiSelected === undefined) {
@@ -70,7 +75,7 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
           }
         })
         
-        // Initialize history structure for this window
+        // initialize history structure for this window
         initWinHistoryIfNotExist(window.id)
         const winHistory = tabsOpenHistory.value.get(window.id)
         
@@ -78,16 +83,15 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
         if (tabActive) {
           winHistory.active = [tabActive]
           winHistory.recent = [tabActive]
-          // console.log(`loadTabsAndWinOpen(): Window ${window.id} - set active tab:`, tabActive.id)
+          // console.log(`loadSessionsOpen(): Window ${window.id} - set active tab:`, tabActive.id)
         }
       })
       
-      tabsOpenWindows.value = allWindows
-      currentWindowId.value = currentWin.id
+      sessionsOpen.value = allWindows
+      windowCurrentId.value = currentWindow.id
       
-      // Update the fast lookup map
+      // update the fast lookup map
       updateTabsMapOpen()
-      
     } catch (error) {
       console.error('Error loading windows and tabs:', error)
       lastError.value = error.message
@@ -103,7 +107,7 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
     }
   }
 
-  // Update active tab for a window
+  // update active tab for a window
   const onTabOpenActivated = (activeInfo) => {
     const { tabId, windowId } = activeInfo
     const tabInfo = tabsMapOpen.value.get(tabId) // Use fast lookup map to get the tab object
@@ -199,7 +203,7 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
 
   const refreshData = () => {
     console.log('TabsOpen.js: Refreshing data')
-    loadTabsAndWinOpen()
+    loadSessionsOpen()
   }
 
   // Tab action methods
@@ -280,7 +284,7 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
       if(!winOldId){
         console.error('onTabOpenAttached(): winOldId not found for tabId:', tabId)
       }else{
-        let winOld = tabsOpenWindows.value.find(w => w.id === winOldId)
+        let winOld = sessionsOpen.value.find(w => w.id === winOldId)
         let indexOld = winOld.tabs.findIndex(t => t.id === tabId)
         if(indexOld > -1){
           winOld.tabs.splice(indexOld, 1)
@@ -297,7 +301,7 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
     }
     const tab = tabInfo.tab
 
-    let winNew = tabsOpenWindows.value.find(w => w.id === winIdNew)
+    let winNew = sessionsOpen.value.find(w => w.id === winIdNew)
     if(!winNew){
       console.error('onTabOpenAttached(): winNew not found for winIdNew:', winIdNew)
     }else{
@@ -315,14 +319,14 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
   const onWinCreated = async (window) => {
     console.error('onWinCreated(): window:', window)
     
-    // Add the new window to tabsOpenWindows
+    // Add the new window to sessionsOpen
     const newWindow = {
       id: window.id,
       tabs: []
     }
-    tabsOpenWindows.value.push(newWindow)
+    sessionsOpen.value.push(newWindow)
     
-    // Initialize history for the new window
+    // initialize history for the new window
     initWinHistoryIfNotExist(window.id)
 
     // tabs in the window will be added by the onCreated event listener
@@ -347,18 +351,20 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
 
   const onWinClosed = (winId) => {
     console.error('onWinClosed(): windowId:', winId)
-    // remove from tabsOpenWindows
-    const winIndex = tabsOpenWindows.value.findIndex(w => w.id === winId)
+    // remove from sessionsOpen
+    const winIndex = sessionsOpen.value.findIndex(w => w.id === winId)
     if(winIndex > -1){
-      tabsOpenWindows.value.splice(winIndex, 1)
+      sessionsOpen.value.splice(winIndex, 1)
     }else{
-      console.error('onWinClosed(): winId:', winId, 'not found in tabsOpenWindows')
+      console.error('onWinClosed(): winId:', winId, 'not found in sessionsOpen')
     }
     // remove from tabsOpenHistory
     tabsOpenHistory.value.delete(winId)
+    // remove nickname if exists
+    delete sessionsOpenNickname.value[winId]
   }
 
-  // Handle messages from background script (for backward compatibility and sync)
+  // handle messages from background script (for backward compatibility and sync)
   const handleBackgroundMessage = (message, sender, sendResponse) => {
     if (message.action === "tabsRecentUpdated") {
       // Background script is also maintaining this, but we prioritize our local version
@@ -367,7 +373,7 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
     }
   }
 
-  // Sync initial recent tabs history from background script
+  // sync initial recent tabs history from background script
   const initTabsOpenHistoryFromBackground = async () => {
     if(process.env.VUE_APP_IS_DEV){
       console.log("initTabsOpenHistoryFromBackground(). process.env.VUE_APP_IS_DEV:", process.env.VUE_APP_IS_DEV)
@@ -439,7 +445,7 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
       }).catch(err => console.warn('Failed to update search results:', err))
       // remove from history
       removeTabFromTabsOpenHistory(tabId)
-      // remove from tabsOpenWindows
+      // remove from sessionsOpen
       removeTabFromWindowsOpen(tabId, removeInfo.windowId)
       // remove from tabsMapOpen
       tabsMapOpen.value.delete(tabId)
@@ -526,7 +532,7 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
   const initTabsOpen = async () => {
     console.log('TabsOpen.js: initTabsOpen(): Starting initialization...')
     initEventListeners()
-    await loadTabsAndWinOpen()
+    await loadSessionsOpen()
     await initTabsOpenHistoryFromBackground() // get recent tabs from background.js
     await updateBrowserSelection() // Update browser selection state
     console.log('TabsOpen.js: initTabsOpen(): Initialization complete')
@@ -535,10 +541,10 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
   // Cleanup method
   const cleanupTabsOpen = () => { removeEventListeners()}
 
-  // Update the fast lookup map when tabsOpenWindows changes
+  // Update the fast lookup map when sessionsOpen changes
   const updateTabsMapOpen = () => {
     tabsMapOpen.value.clear()
-    tabsOpenWindows.value.forEach(window => {
+    sessionsOpen.value.forEach(window => {
       window.tabs.forEach(tab => {
         tabsMapOpen.value.set(tab.id, { tab, windowId: window.id })
       })
@@ -546,9 +552,9 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
     // console.log(`updateTabsMapOpen(): Updated map with ${tabsMapOpen.value.size} tabs`)
   }
 
-  // Precisely remove a tab from tabsOpenWindows without full refresh
+  // Precisely remove a tab from sessionsOpen without full refresh
   const removeTabFromWindowsOpen = (tabId, windowId) => {
-    const window = tabsOpenWindows.value.find(w => w.id === windowId)
+    const window = sessionsOpen.value.find(w => w.id === windowId)
     if (!window) return
     
     const tabIndex = window.tabs.findIndex(tab => tab.id === tabId)
@@ -565,6 +571,9 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
     
     console.log(`removeTabFromWindowsOpen(): Removed tab ${tabId} from window ${windowId}`)
     
+    // update window positions after tab removal
+    setTimeout(() => updateWinPos(), 100)
+    
     // Notify search store about the removed tab - use dynamic import to avoid circular dependency
     import('./TabsSearch').then(({ useTabsSearch }) => {
       const tabsSearchStore = useTabsSearch()
@@ -572,10 +581,10 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
     }).catch(err => console.warn('Failed to update search results:', err))
   }
 
-  // Precisely add a tab to tabsOpenWindows without full refresh
+  // precisely add a tab to sessionsOpen without full refresh
   const addTabToWindowsOpen = (tab) => {
     // console.log('chrome.tabs.onCreated --> addTabToWindowsOpen(). tab:', tab)
-    const window = tabsOpenWindows.value.find(w => w.id === tab.windowId)
+    const window = sessionsOpen.value.find(w => w.id === tab.windowId)
     if (!window) return
     
     // Ensure tab has required properties
@@ -599,11 +608,14 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
     tabsMapOpen.value.set(tab.id, { tab, windowId: tab.windowId })
     
     console.log(`addTabToWindowsOpen(): Added tab ${tab.id} to window ${tab.windowId}`)
+    
+    // update window positions after tab addition
+    setTimeout(() => updateWinPos(), 100)
   }
 
-  // Precisely update a tab in tabsOpenWindows without full refresh
+  // Precisely update a tab in sessionsOpen without full refresh
   const onTabOpenUpdated = (tabId, changeInfo, updatedTab) => {
-    // const window = tabsOpenWindows.value.find(w => w.id === updatedTab.windowId)
+    // const window = sessionsOpen.value.find(w => w.id === updatedTab.windowId)
     // if (!window) return
     const tabInfo = tabsMapOpen.value.get(tabId)
     let tab = null;
@@ -641,7 +653,7 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
   // DRAG TAB in SAME WINDOW
   const onTabOpenMoved = (tabId, moveInfo) => {
     // console.log('chrome.tabs.onMoved --> onTabOpenMoved()', tabId, moveInfo)
-    const window = tabsOpenWindows.value.find(w => w.id === moveInfo.windowId)
+    const window = sessionsOpen.value.find(w => w.id === moveInfo.windowId)
     if (!window) return
     
     const tabIndex = window.tabs.findIndex(tab => tab.id === tabId)
@@ -650,6 +662,9 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
     const [tab] = window.tabs.splice(tabIndex, 1)
     window.tabs.splice(moveInfo.toIndex, 0, tab)
     // console.log(`onTabOpenMoved(): Moved tab ${tabId} from index ${moveInfo.fromIndex} to ${moveInfo.toIndex}`)
+    
+    // update window positions after tab movement
+    setTimeout(() => updateWinPos(), 100)
   }
 
   const updateTabOpenWinId = (tabId, winIdNew) => {
@@ -664,7 +679,7 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
     }else{
       // console.log(`updateTabOpenWinId(): Tab ${tabId} not found in tabsMapOpen`)
       // Find the tab in any window and update its windowId
-      for (const window of tabsOpenWindows.value) {
+      for (const window of sessionsOpen.value) {
         tab = window.tabs.find(t => t.id === tabId)
         if(tab){
           tab.windowId = winIdNew
@@ -684,31 +699,87 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
       }
     }
   }
+
+  // Session nicknames: { windowId: 'nickname' }
+  const sessionsOpenNickname = ref({})
+  
+  // Methods for session nickname management
+  const setSessionNickname = (windowId, nickname) => {
+    if (nickname && nickname.trim()) {
+      sessionsOpenNickname.value[windowId] = nickname.trim()
+    } else {
+      delete sessionsOpenNickname.value[windowId]
+    }
+  }
+  
+  const getSessionNickname = (windowId) => {
+    return sessionsOpenNickname.value[windowId] || null
+  }
+  
+  const getSessionDisplayName = (windowId) => {
+    const nickname = getSessionNickname(windowId)
+    if (nickname) return nickname
+    
+    return windowId === windowCurrentId.value ? 'Current Window' : `Window ${windowId}`
+  }
+
+  // window position tracking for scroll monitoring (shared function)
+  const updateWinPos = () => {
+    if (typeof document === 'undefined') return
+    
+    const windowContainers = document.querySelectorAll('.window-container[data-window-id]')
+    windowContainers.forEach(container => {
+      const windowId = parseInt(container.dataset.windowId)
+      const rect = container.getBoundingClientRect()
+      const scrollContainer = document.querySelector('.windows-container')
+      if (scrollContainer) {
+        const scrollRect = scrollContainer.getBoundingClientRect()
+        const relativeTop = rect.top - scrollRect.top + scrollContainer.scrollTop
+        windowPositions.value.set(windowId, {
+          top: relativeTop,
+          height: rect.height
+        })
+      }
+    })
+  }
+
+
+  
   return {
     // State
-    tabsOpenWindows,
-    currentWindowId,
+    sessionsOpen,
+    windowCurrentId,
     tabsOpenHistory,
     isLoading,
     lastError,
     tabsOpenUiSelected,
     tabsMapOpen,
+    sessionsOpenNickname,
     
     // Computed
-    totalTabs,
-    currentWindow,
+    tabsOpenNumTotal,
+    windowCurrent,
     
     // Methods
-    loadTabsAndWinOpen,
+    loadSessionsOpen,
     onTabOpenActivated,
     updateBrowserSelection,
     refreshData,
     activateTab,
     closeTab,
     
-    // History management
+    // session nickname management
+    setSessionNickname,
+    getSessionNickname,
+    getSessionDisplayName,
     
-    // Lifecycle methods
+    // window position tracking (shared)
+    windowPositions,
+    updateWinPos,
+    
+    // history management
+    
+    // lifecycle methods
     initTabsOpen,
     cleanupTabsOpen,
     initEventListeners,

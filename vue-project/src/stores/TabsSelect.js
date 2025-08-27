@@ -281,7 +281,7 @@ export const useTabsSelect = defineStore('tabsSelect', () => {
     console.log(`getAllTabsForSource(): source: ${source}`)
     const allTabs = []
     if (source === 'open') {
-      for (const window of tabsOpenStore.tabsOpenWindows) {
+      for (const window of tabsOpenStore.sessionsOpen) {
         if (window.tabs) {
           allTabs.push(...window.tabs)
         }

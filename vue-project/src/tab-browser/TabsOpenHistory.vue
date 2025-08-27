@@ -9,14 +9,14 @@
       <!-- For Each Open Window-->
       <div class="window-content-virtual">
         <div 
-          v-for="window in tabsOpenWindows"
+          v-for="window in sessionsOpen"
           :key="`virtual-${window.id}`"
           class="virtual-window-section"
-          :class="{ 'current-window-section': window.id === currentWindowId }"
+          :class="{ 'current-window-section': window.id === windowCurrentId }"
         >
           <div class="section-header">
             <div class="section-title">
-              {{ window.id === currentWindowId ? 'Current Window' : `Window ${window.id}` }}
+              {{ window.id === windowCurrentId ? 'Current Window' : `Window ${window.id}` }}
               <span class="virtual-section-count">({{ window.tabs.length }} tabs)</span>
             </div>
           </div>
@@ -103,8 +103,8 @@ const tabsStore = useTabsOpen()
 const tabsSelectStore = useTabsSelect()
 
 const { 
-  tabsOpenWindows, 
-  currentWindowId, 
+  sessionsOpen, 
+  windowCurrentId, 
   tabsOpenHistory 
 } = storeToRefs(tabsStore)
 
@@ -221,13 +221,13 @@ onUpdated(() => {
 //   })
 // }, { deep: true })
 
-watch(currentWindowId, (newId, oldId) => {
-  console.log('TabsOpenHistory.vue: currentWindowId changed', { newId, oldId })
+watch(windowCurrentId, (newId, oldId) => {
+  console.log('TabsOpenHistory.vue: windowCurrentId changed', { newId, oldId })
 })
 
-// Only watch tabsOpenWindows structure changes, not deep tab property changes
-watch(tabsOpenWindows, (newWindows, oldWindows) => {
-  console.log('TabsOpenHistory.vue: tabsOpenWindows structure changed', {
+// Only watch sessionsOpen structure changes, not deep tab property changes
+watch(sessionsOpen, (newWindows, oldWindows) => {
+  console.log('TabsOpenHistory.vue: sessionsOpen structure changed', {
     newCount: newWindows?.length || 0,
     oldCount: oldWindows?.length || 0
   })

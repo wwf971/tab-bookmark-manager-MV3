@@ -5,8 +5,8 @@
       <div class="stats">
         <span v-if="isLoading">Loading...</span>
         <span v-else>
-          {{ (tabsOpenWindows || []).length }} window{{ (tabsOpenWindows || []).length !== 1 ? 's' : '' }},
-          {{ totalTabs }} tab{{ totalTabs !== 1 ? 's' : '' }}
+          {{ (sessionsOpen || []).length }} window{{ (sessionsOpen || []).length !== 1 ? 's' : '' }},
+          {{ tabsOpenNumTotal }} tab{{ tabsOpenNumTotal !== 1 ? 's' : '' }}
         </span>
       </div>
     </div>
@@ -44,10 +44,10 @@
           v-if="item.type === 'window-header'"
           :key="`header-${item.uniqueId}`"
           class="window-header-item"
-          :class="{ 'current-window': item.windowId === currentWindowId }"
+          :class="{ 'current-window': item.windowId === windowCurrentId }"
         >
           <div class="window-title">
-            {{ item.windowId === currentWindowId ? 'Current Window' : `Window ${item.windowId}` }}
+            {{ item.windowId === windowCurrentId ? 'Current Window' : `Window ${item.windowId}` }}
           </div>
           <div class="tab-count">
             {{ item.tabCount }} tab{{ item.tabCount !== 1 ? 's' : '' }}
@@ -135,9 +135,9 @@ const tabsStore = useTabsOpen()
 const tabsSelectStore = useTabsSelect()
 
 const {
-  tabsOpenWindows, 
-  currentWindowId, 
-  totalTabs, 
+  sessionsOpen, 
+  windowCurrentId, 
+  tabsOpenNumTotal, 
   isLoading, 
   lastError
 } = storeToRefs(tabsStore)
@@ -293,11 +293,11 @@ const flattenedItems = computed(() => {
   const items = []
   let itemCounter = 0
 
-  if (!tabsOpenWindows.value || !Array.isArray(tabsOpenWindows.value)) {
+  if (!sessionsOpen.value || !Array.isArray(sessionsOpen.value)) {
     return items
   }
 
-  tabsOpenWindows.value.forEach(window => {
+  sessionsOpen.value.forEach(window => {
     // Add window header
     items.push({
       type: 'window-header',
@@ -482,13 +482,13 @@ const handleClickOutside = (event) => {
   }
 }
 
-// Update fast lookup map when tabsOpenWindows changes
+// Update fast lookup map when sessionsOpen changes
 const updateTabsMapOpen = () => {
-  updateTabsMap(tabsOpenWindows, 'open')
+  updateTabsMap(sessionsOpen, 'open')
 }
 
-// Watch for changes in tabsOpenWindows to update the fast lookup map
-watch(tabsOpenWindows, updateTabsMapOpen, { immediate: true })
+// Watch for changes in sessionsOpen to update the fast lookup map
+watch(sessionsOpen, updateTabsMapOpen, { immediate: true })
 
 // watch refresh count to trigger refresh when button is clicked
 watch(refreshCount, (newCount, oldCount) => {

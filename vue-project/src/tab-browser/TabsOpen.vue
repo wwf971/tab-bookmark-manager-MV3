@@ -5,8 +5,8 @@
       <div class="stats">
         <span v-if="isLoading">Loading...</span>
         <span v-else>
-          {{ (tabsOpenWindows || []).length }} window{{ (tabsOpenWindows || []).length !== 1 ? 's' : '' }},
-          {{ totalTabs }} tab{{ totalTabs !== 1 ? 's' : '' }}
+          {{ (sessionsOpen || []).length }} window{{ (sessionsOpen || []).length !== 1 ? 's' : '' }},
+          {{ tabsOpenNumTotal }} tab{{ tabsOpenNumTotal !== 1 ? 's' : '' }}
         </span>
       </div>
     </div>
@@ -39,14 +39,15 @@
 
         <!-- chrome windows, each window contains tabs -->
         <div 
-          v-for="window in tabsOpenWindows" 
+          v-for="window in sessionsOpen" 
           :key="window.id"
           class="window-container"
-          :class="{ 'current-window': window.id === currentWindowId }"
+          :class="{ 'current-window': window.id === windowCurrentId }"
+          :data-window-id="window.id"
         >
           <div class="window-header">
             <div class="window-title">
-              {{ window.id === currentWindowId ? 'Current Window' : `Window ${window.id}` }}
+              {{ window.id === windowCurrentId ? 'Current Window' : `Window ${window.id}` }}
             </div>
             <div class="tab-count">
               {{ window.tabs.length }} tab{{ window.tabs.length !== 1 ? 's' : '' }}
@@ -105,14 +106,14 @@
       <!-- WindowsBased Mode -->
       <div v-else-if="(panelDisplayRef?.selectItems?.displayMode?.value ?? 'TabsBased') === 'WindowsBased'" class="overview-container">
         <div 
-          v-for="window in tabsOpenWindows" 
+          v-for="window in sessionsOpen" 
           :key="window.id"
           class="overview-window"
-          :class="{ 'current-window': window.id === currentWindowId }"
+          :class="{ 'current-window': window.id === windowCurrentId }"
         >
           <div class="overview-window-header">
             <div class="overview-window-title">
-              {{ window.id === currentWindowId ? 'Current Window' : `Window ${window.id}` }}
+              {{ window.id === windowCurrentId ? 'Current Window' : `Window ${window.id}` }}
             </div>
             <div class="tab-count">
               {{ window.tabs.length }} tab{{ window.tabs.length !== 1 ? 's' : '' }}
@@ -254,9 +255,9 @@ const serverStore = useServerStore()
 const communicateStore = useCommunicateStore()
 
 const {
-  tabsOpenWindows, 
-  currentWindowId, 
-  totalTabs, 
+  sessionsOpen, 
+  windowCurrentId, 
+  tabsOpenNumTotal, 
   isLoading, 
   lastError,
   tabsOpenHistory 
@@ -272,7 +273,15 @@ const {
   closeTab, 
   refreshData, 
   cleanupTabsOpen,
+  updateWinPos,
 } = tabsStore
+
+const { windowPositions } = storeToRefs(tabsStore)
+
+// scroll monitoring (component-specific)
+const isScrollReportPaused = ref(false)
+const windowIdVisible = ref(null) // currently visible window id
+const scrollEventTimeout = ref(null) // throttling timeout
 
 // ref to PanelDisplaySetting component
 const panelDisplayRef = ref(null)
@@ -612,7 +621,7 @@ const { handleGridClick, handleGridDoubleClick, handleGridContextMenu } = create
     }
   },
   onTabRemove: handleTabClose,
-  tabsData: tabsOpenWindows,
+  tabsData: sessionsOpen,
   source: 'open'
 })
 
@@ -630,14 +639,62 @@ const getLastTabs = (tabs, count) => {
   return tabs.slice(-count)
 }
 
-// Update fast lookup map when tabsOpenWindows changes
-const updateTabsMapOpen = () => {
-  // console.log('TabsOpen.vue: updateTabsMapOpen()')
-  updateTabsMap(tabsOpenWindows, 'open')
+// scroll monitoring functions (component-specific)
+const getVisibleWindowId = () => {
+  if (typeof document === 'undefined') return null
+  
+  const scrollContainer = document.querySelector('.windows-container')
+  if (!scrollContainer) return null
+  
+  const scrollTop = scrollContainer.scrollTop
+  
+  // find the first window whose top is at or above the scroll position
+  let visibleWindowId = null
+  let minDistance = Infinity
+  
+  for (const [windowId, position] of windowPositions.value.entries()) {
+    if (position.top <= scrollTop + 10) { // 10px tolerance
+      const distance = scrollTop - position.top
+      if (distance < minDistance) {
+        minDistance = distance
+        visibleWindowId = windowId
+      }
+    }
+  }
+  
+  // if no window is above scroll position, return the first window
+  if (visibleWindowId === null && windowPositions.value.size > 0) {
+    const firstEntry = windowPositions.value.entries().next().value
+    visibleWindowId = firstEntry[0]
+  }
+  
+  return visibleWindowId
 }
 
-// Watch for changes in tabsOpenWindows to update the fast lookup map
-watch(tabsOpenWindows, updateTabsMapOpen, { immediate: true })
+const onScrollEvent = () => {
+  if (isScrollReportPaused.value) return
+  
+  // throttle scroll events to max 0.1s frequency
+  if (scrollEventTimeout.value) return
+  
+  scrollEventTimeout.value = setTimeout(() => {
+    const newVisibleWindowId = getVisibleWindowId()
+    if (newVisibleWindowId !== windowIdVisible.value) {
+      windowIdVisible.value = newVisibleWindowId
+      console.log('TabsOpen: Visible window changed to:', newVisibleWindowId)
+    }
+    scrollEventTimeout.value = null
+  }, 100) // 0.1s = 100ms
+}
+
+// Update fast lookup map when sessionsOpen changes
+const updateTabsMapOpen = () => {
+  // console.log('TabsOpen.vue: updateTabsMapOpen()')
+  updateTabsMap(sessionsOpen, 'open')
+}
+
+// Watch for changes in sessionsOpen to update the fast lookup map
+watch(sessionsOpen, updateTabsMapOpen, { immediate: true })
 
 // watch refresh count to trigger refresh when button is clicked
 watch(() => panelDisplayRef.value?.triggerItems?.find?.(item => item.name === 'refresh')?.count, (newCount, oldCount) => {
@@ -659,8 +716,8 @@ onUpdated(() => {
   // console.log('TabsOpen.vue: Component updated')
 })
 
-watch(currentWindowId, (newId, oldId) => {
-  console.log('TabsOpen.vue: currentWindowId changed', { 
+watch(windowCurrentId, (newId, oldId) => {
+  console.log('TabsOpen.vue: windowCurrentId changed', { 
     newId, 
     oldId,
     trigger: new Error().stack?.split('\n')[2]?.trim() || 'unknown'
@@ -674,6 +731,16 @@ onMounted(async () => {
   // Add click listener to close context menu
   document.addEventListener('click', handleClickOutside)
 
+  // Add scroll listener for window position tracking
+  const scrollContainer = document.querySelector('.windows-container')
+  if (scrollContainer) {
+    scrollContainer.addEventListener('scroll', onScrollEvent)
+    // initial position update
+    setTimeout(() => {
+      updateWinPos()
+      onScrollEvent()
+    }, 100)
+  }
   // configuration is already set in booleanItemsConfig above
   // no need to manually set values since they're configured declaratively
 
@@ -681,15 +748,27 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  // Cleanup shift key tracking
+  // cleanup shift key tracking
   if (cleanupShiftTracking) {
     cleanupShiftTracking()
   }
   
-  // Remove click listener
+  // remove click listener
   document.removeEventListener('click', handleClickOutside)
   
-  // Cleanup store event listeners
+  // remove scroll listener
+  const scrollContainer = document.querySelector('.windows-container')
+  if (scrollContainer) {
+    scrollContainer.removeEventListener('scroll', onScrollEvent)
+  }
+  
+  // cleanup scroll event timeout
+  if (scrollEventTimeout.value) {
+    clearTimeout(scrollEventTimeout.value)
+    scrollEventTimeout.value = null
+  }
+  
+  // cleanup store event listeners
   cleanupTabsOpen()
 })
 
@@ -705,6 +784,57 @@ const getActiveAndSelectedTabs = computed(() => {
     )
     return uniqueTabs
   }
+})
+
+// scroll to specific window
+const scrollToWindow = (windowId) => {
+  const windowContainer = document.querySelector(`.window-container[data-window-id="${windowId}"]`)
+  if (!windowContainer) {
+    console.warn(`scrollToWindow(): Window container not found for windowId: ${windowId}`)
+    return
+  }
+  
+  const scrollContainer = document.querySelector('.windows-container')
+  if (!scrollContainer) {
+    console.warn('scrollToWindow(): Windows container not found')
+    return
+  }
+  
+  // pause scroll reporting during programmatic scroll
+  isScrollReportPaused.value = true
+  
+  // calculate scroll position relative to the scroll container
+  const containerRect = scrollContainer.getBoundingClientRect()
+  const windowRect = windowContainer.getBoundingClientRect()
+  const currentScrollTop = scrollContainer.scrollTop
+  
+  // calculate the target scroll position
+  const targetScrollTop = currentScrollTop + (windowRect.top - containerRect.top) + 3; // 3px offset from top
+  
+  // smooth scroll to the window
+  scrollContainer.scrollTo({
+    top: targetScrollTop,
+    behavior: 'smooth'
+  })
+  
+  // resume scroll reporting after scroll animation completes
+  setTimeout(() => {
+    isScrollReportPaused.value = false
+    // trigger position update and check visible window
+    updateWinPos()
+    onScrollEvent()
+  }, 500) // 500ms should be enough for smooth scroll animation
+  
+  console.log(`scrollToWindow(): Scrolled to window ${windowId}`)
+}
+
+// Expose methods for parent components
+defineExpose({
+  scrollToWindow,
+  windowIdVisible,
+  getVisibleWindowId,
+  onScrollEvent,
+  isScrollReportPaused
 })
 
 </script>
@@ -729,6 +859,9 @@ const getActiveAndSelectedTabs = computed(() => {
 
 .tabs-panel {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .stats {
@@ -779,7 +912,7 @@ const getActiveAndSelectedTabs = computed(() => {
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
   overflow: hidden;
-  margin-bottom: 16px;
+  margin-bottom: 0px;
 }
 
 .window-container.current-window {

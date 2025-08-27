@@ -1,13 +1,15 @@
 
 node_modules/
 # including deeply nested node_modules
+.vscode/
 ./dist/
-
 *.zip
 
-# configuration files
 # user.config.js
 user.config.0.js
 
-info|git-command.sh
-# git add .
+info*.sh
+info*.txt
+
+manifest-bak.json
+info-git-command.sh

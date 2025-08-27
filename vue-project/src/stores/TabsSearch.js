@@ -186,11 +186,11 @@ export const useTabsSearch = defineStore('tabsSearch', () => {
     }
 
     // Get open tabs from TabsOpen store
-    const tabsOpenWindows = tabsOpenStore.tabsOpenWindows
+    const sessionsOpen = tabsOpenStore.sessionsOpen
 
     // Search in open tabs (text search only)
-    if (tabsOpenWindows && tabsOpenWindows.length > 0) {
-      for (const window of tabsOpenWindows) {
+    if (sessionsOpen && sessionsOpen.length > 0) {
+      for (const window of sessionsOpen) {
         for (const tab of window.tabs) {
           if (controller.signal.aborted) return results
           if (matchesSearchTerm(tab, searchTerm)) {

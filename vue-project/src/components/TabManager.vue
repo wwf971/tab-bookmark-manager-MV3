@@ -1,16 +1,11 @@
 <template>
   <div class="tab-manager">
     <header>
-      <h1>Tab Manager</h1>
-      <div class="controls">
-        <button 
-          class="btn btn-primary"
-          @click="toggleTabMode"
-        >
-          Current Tab: {{ tabModeText }}
-        </button>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <h1>Tab Manager</h1>
+        <TabsPin />
       </div>
-
+      
       <!-- Level 1: Main Content Switcher -->
       <div class="main-content-switcher">
         <div class="switcher-track">
@@ -74,16 +69,15 @@
 
     <!-- Content Views -->
     <div class="content-views">
-      <!-- Tabs View with Columns -->
+      <!-- Tabs View with Main Window -->
       <div v-show="mainView === 'tabs'" class="content-view">
-        <TabsColumns
-          :active-tab-types="Array.from(activeTabTypes)"
-          :active-bookmark-types="Array.from(activeBookmarkTypes)"
+        <TabsMainWindow
           @tab-activated="handleTabActivate"
           @tab-closed="handleTabClose"
-          @openSettings="onOpenSettings"
+          @show-context-menu="handleShowContextMenu"
+          @upload-single-tab="handleUploadSingleTab"
           @upload-selected-tabs="openUploadModal"
-          ref="tabsColumnsRef"
+          ref="tabsMainWindowRef"
         />
       </div>
 
@@ -113,7 +107,7 @@
           <SnapshotManager
             v-if="hasLoadedSnapshots"
             :windows="windows"
-            :current-window-id="currentWindowId"
+            :current-window-id="windowCurrentId"
           />
         </div>
       </div>
@@ -159,12 +153,14 @@ import { useTabsOpen } from '../stores/TabsOpen'
 import { useTabsSelect } from '../stores/TabsSelect'
 import { useTagsEdit } from '../stores/TagsEdit'
 import { useTabsRemote } from '../stores/TabsRemote'
-import TabsColumns from './TabsColumns.vue'
+import TabsMainWindow from '@/tabs/TabsMainWindow.vue'
 import SettingsRemote from '@/setting/SettingsRemote.vue'
 import SnapshotManager from './snapshot/SnapshotManager.vue'
 import TabsUploadModal from './TabsUploadModal.vue'
 import TagsEdit from './tag/TagsEdit.vue'
 import TagsManager from './TagsManager.vue'
+import TabsPin from '@/tabs/TabsPin.vue'
+
 
 // Main views configuration (Level 1)
 const mainViews = [
@@ -193,7 +189,7 @@ const bookmarkTypes = [
 
 // State
 const tabMode = ref(0) // 0: Free, 1: Always First, 2: Always Last
-const tabsColumnsRef = ref(null)
+const tabsMainWindowRef = ref(null)
 
 
 // View state
@@ -217,15 +213,6 @@ const openSelectionCount = computed(() => tabsSelectStore.getSelectedCount('open
 const remoteSelectionCount = computed(() => tabsSelectStore.getSelectedCount('remote'))
 
 // Computed
-const tabModeText = computed(() => {
-  switch (tabMode.value) {
-    case 0: return 'Free'
-    case 1: return 'Always First'
-    case 2: return 'Always Last'
-    default: return 'Free'
-  }
-})
-
 import { useServerStore } from '@/stores/Server.js'
 const serverStore = useServerStore()
 
@@ -253,29 +240,6 @@ const refreshTabs = () => {
 const toggleTabMode = () => {
   tabMode.value = (tabMode.value + 1) % 3
   applyTabMode()
-}
-
-const applyTabMode = async () => {
-  if (tabMode.value === 0) return
-
-  const currentWindow = await chrome.windows.getCurrent()
-  const tabs = await chrome.tabs.query({ windowId: currentWindow.id })
-  const activeTab = tabs.find(tab => tab.active)
-
-  if (!activeTab) return
-
-  switch (tabMode.value) {
-    case 1: // Always first
-      if (tabs[0].id !== activeTab.id) {
-        await chrome.tabs.move(activeTab.id, { index: 0 })
-      }
-      break
-    case 2: // Always last
-      if (tabs[tabs.length - 1].id !== activeTab.id) {
-        await chrome.tabs.move(activeTab.id, { index: -1 })
-      }
-      break
-  }
 }
 
 const switchMainView = (viewId) => {
@@ -324,6 +288,26 @@ const handleTabClose = async (tab) => {
     await tabsOpenStore.closeTab(tab)
   } catch (error) {
     console.error('Error closing tab:', error)
+  }
+}
+
+const handleShowContextMenu = (event) => {
+  // context menu events are handled by the TabsMainWindow component internally
+  console.log('TabManager.vue: handleShowContextMenu:', event)
+}
+
+const handleUploadSingleTab = async (tab) => {
+  // Delegate to upload single tab functionality
+  try {
+    const result = await networkRequest.uploadTabToRemote(tab)
+    if (result.is_success) {
+      console.log('TabManager.vue: Single tab uploaded successfully')
+      // Optionally show success notification
+    } else {
+      console.error('TabManager.vue: Error uploading single tab:', result.message)
+    }
+  } catch (error) {
+    console.error('TabManager.vue: Error uploading single tab:', error)
   }
 }
 

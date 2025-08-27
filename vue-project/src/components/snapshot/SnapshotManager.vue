@@ -14,7 +14,7 @@
           <div class="window-info">
             <div class="window-title">
               Window {{ window.id }}
-              <span v-if="window.id === currentWindowId" class="current-tag">current window</span>
+              <span v-if="window.id === windowCurrentId" class="current-tag">current window</span>
             </div>
             <div class="tab-count">
               {{ window.tabs.length }} tab{{ window.tabs.length !== 1 ? 's' : '' }}
@@ -97,7 +97,7 @@ const props = defineProps({
     type: Array,
     required: true
   },
-  currentWindowId: {
+  windowCurrentId: {
     type: Number,
     required: true
   }

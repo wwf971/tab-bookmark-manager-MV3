@@ -1,3 +1,9 @@
+
+
+I hate large margin/padding/border-radius/gap. Fuck you if you dare to use large margin/padding/border-radius/gap.
+    max acceptable value for padding/margin/border-radius/gap is 12px. 12px should only be applied to very high-level elements.
+    
+
 When designing react components, you should always use separate .css. Avoid using inline style.
 
 Don't simply add console.log to solve the problem.
@@ -17,9 +23,6 @@ Don't capitalize the first letter of the first word in a comment.
         // aa bb cc
     bad comment:
         // Aa bb cc
-
-I hate large margin/padding/border-radius. Fuck you if you dare to use large margin/padding/border-radius.
-    max acceptable value for padding/margin is 12px. 12px should only be applied to very high-level elements.
 
 You should use the variable and function name that I decided
 You can add new variable and function name if you think it is necessary, but the naming style should be the same as the existing ones.
