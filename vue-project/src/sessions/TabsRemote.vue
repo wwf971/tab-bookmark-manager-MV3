@@ -6,27 +6,27 @@
         <span v-if="isFetchingFromServer">
           Initializing...
         </span>
-        <span v-else-if="!isWinRemoteLoading">
+        <span v-else-if="!isSessionsRemoteLoading">
           {{ tabsRemoteStore.isFetchAllTabsFromRemoteOnInit ? 'Fetch All Mode' : 'Search Only Mode' }} | 
-          {{ Object.keys(tabsRemoteList || {}).length }} list{{ Object.keys(tabsRemoteList || {}).length !== 1 ? 's' : '' }},
-          {{ tabsRemoteNumTotal }} tab{{ tabsRemoteNumTotal !== 1 ? 's' : '' }}
+          {{ Object.keys(displayData || {}).length }} list{{ Object.keys(displayData || {}).length !== 1 ? 's' : '' }},
+          <span v-if="isSearchMode" class="search-indicator">(search)</span>
+          <span v-else-if="isFilterMode && filterList.length > 0" class="filter-indicator">(filtered)</span>
+          {{ sessionRemoteTabNumTotal }} tab{{ sessionRemoteTabNumTotal !== 1 ? 's' : '' }}
         </span>
         <span v-else>Loading...</span>
       </div>
+      
+      <!-- Filter component -->
+      <SessionsRemoteFilter
+        v-model="filterList"
+        @update:modelValue="handleFiltersChange"
+      />
     </div>
 
-    <!-- Display Controls -->
-    <PanelDisplaySetting
-      ref="panelDisplayRef"
-      :is-loading="isWinRemoteLoading"
-      :boolean-items="booleanItemsConfig"
-      :range-items="rangeItemsConfig"
-      :select-items="selectItemsConfig"
-      :trigger-items="triggerItemsConfig"
-    />
+
 
     <!-- Initialization state -->
-    <div v-if="isFetchingFromServer || (!isWinRemoteLoaded)" class="initialization-state">
+    <div v-if="isFetchingFromServer || (!isSessionsRemoteLoaded)" class="initialization-state">
       <div class="initialization-message">
         <div class="spinner">↻</div>
         <div v-if="isFetchingFromServer">Connecting to server...</div>
@@ -35,7 +35,7 @@
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error && !isFetchingFromServer && !(!isWinRemoteLoaded)" class="error-state">
+    <div v-else-if="error && !isFetchingFromServer && !(!isSessionsRemoteLoaded)" class="error-state">
       <div class="error-message">{{ error }}</div>
       <div class="error-actions">
         <button @click="() => fetchRemoteTabs(true)" class="retry-btn">Retry</button>
@@ -48,7 +48,7 @@
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="!isWinRemoteLoading && !isFetchingFromServer && Object.keys(tabsRemoteList || {}).length === 0" class="empty-state">
+    <div v-else-if="!isSessionsRemoteLoading && !isFetchingFromServer && Object.keys(displayData || {}).length === 0" class="empty-state">
       <div class="empty-message">
         {{ tabsRemoteStore.isFetchAllTabsFromRemoteOnInit ? 'No remote tabs found' : 'Use search to find remote tabs' }}
       </div>
@@ -62,68 +62,24 @@
     </div>
 
     <!-- Lists container with scroll -->
-    <div v-else-if="!isFetchingFromServer && !(isWinRemoteLoading && !isWinRemoteLoaded)" class="lists-container">
+    <div v-else-if="!isFetchingFromServer && !(isSessionsRemoteLoading && !isSessionsRemoteLoaded)" class="lists-container">
       <!-- TabsBased Mode -->
       <div v-if="displayMode === 'TabsBased'" class="panel-container">
-        <!-- Virtual Window: Recently Uploaded Tabs -->
-        <div class="virtual-window">
-          <div class="virtual-window-header">
-            <div class="virtual-window-title">Recently Uploaded</div>
-            <div class="virtual-window-description">
-              Last {{ tabsRemoteRecent.length }} tabs uploaded
-          </div>
-          </div>
-          <div class="window-content-virtual">
-            <div class="tab-virtual-grid"
-              @click="handleGridClick"
-              @dblclick="handleGridDoubleClick"
-              @contextmenu="handleGridContextMenu"
-            >
-              <TabCard
-                v-for="tab in tabsRemoteRecent"
-                :key="tab.id"
-                :tab="tab"
-                :show-icon="showIcon"
-                :show-title="showTitle"
-                :show-url="showUrl"
-                :data-parent-class="'tab-virtual-grid'"
-                :data-tab-id="tab.id"
-                :data-list-id="tab.listId"
-                :source="'remote'"
-                :default-icon="defaultIcon"
-                :remove-button-title="'Remove from cache'"
-              />
-
-              <!-- Context Menu -->
-              <!-- <TabsContextMenu
-                :show="contextMenu.show"
-                :x="contextMenu.x"
-                :y="contextMenu.y"
-                :tab="contextMenu.tab"
-                :selected-count="remoteSelectionCount"
-                :has-selection="remoteSelectionCount > 0"
-                :selected-tabs="selectedRemoteTabs"
-                :menu-items="contextMenuItems"
-                :is-loading="contextMenuLoading.isLoading"
-                :loading-action="contextMenuLoading.action"
-                @menu-item-clicked="handleContextMenuAction"
-              /> -->
-            </div>
-          </div>
-        </div>
-
-        <!-- Actual Lists -->
+        <!-- Remote Sessions Lists -->
         <div 
-          v-for="(listData, listId) in tabsRemoteList" 
-          :key="listId"
+          v-for="(sessionTabs, sessionId) in displayData" 
+          :key="sessionId"
           class="list-container"
+          :data-session-id="sessionId"
         >
-          <div class="list-header">
-            <div class="list-title">
-              {{ listData.name || `List ${listId}` }}
-            </div>
-            <div class="tab-count">
-              {{ Object.keys(listData.tabs || {}).length }} tab{{ Object.keys(listData.tabs || {}).length !== 1 ? 's' : '' }}
+          <div class="session-remote-header">
+            <div class="remote-divider">
+              <div class="remote-title">
+                {{ sessionTabs.name || `List ${sessionId}` }}
+              </div>
+              <div class="tab-count">
+                {{ Object.keys(sessionTabs.tabs || {}).length }} tab{{ Object.keys(sessionTabs.tabs || {}).length !== 1 ? 's' : '' }}
+              </div>
             </div>
           </div>
 
@@ -142,7 +98,7 @@
           >
             <!-- Tab Cards -->
             <TabCard
-              v-for="(tab, tabId) in listData.tabs || {}"
+              v-for="(tab, tabId) in sessionTabs.tabs || {}"
               :key="tabId"
               :tab="tab"
               :show-icon="showIcon"
@@ -154,7 +110,7 @@
               :remove-button-title="'Remove from cache'"
               :data-parent-class="'tab-grid'"
               :data-tab-id="tabId"
-              :data-list-id="listId"
+              :data-list-id="sessionId"
             />
 
 
@@ -179,16 +135,16 @@
       <!-- WindowsBased Mode -->
       <div v-else-if="displayMode === 'WindowsBased'" class="overview-container">
         <div 
-          v-for="(listData, listId) in tabsRemoteList" 
-          :key="listId"
+          v-for="(sessionTabs, sessionId) in displayData" 
+          :key="sessionId"
           class="overview-list"
         >
-          <div class="overview-list-header">
+          <div class="overview-session-remote-header">
             <div class="overview-list-title">
-              {{ listData.name || `List ${listId}` }}
+              {{ sessionTabs.name || `List ${sessionId}` }}
             </div>
             <div class="tab-count">
-              {{ Object.keys(listData.tabs || {}).length }} tab{{ Object.keys(listData.tabs || {}).length !== 1 ? 's' : '' }}
+              {{ Object.keys(sessionTabs.tabs || {}).length }} tab{{ Object.keys(sessionTabs.tabs || {}).length !== 1 ? 's' : '' }}
             </div>
           </div>
 
@@ -203,7 +159,7 @@
               }"
             >
               <div
-                v-for="(tab, tabId) in listData.tabs || {}"
+                v-for="(tab, tabId) in sessionTabs.tabs || {}"
                 :key="tabId"
                 class="tab-icon-item"
                 :class="{ 'ui-selected-tab-icon': tab.isUiSelected }"
@@ -233,7 +189,7 @@
                >
                 <!-- First 10 tabs -->
                 <div
-                  v-for="(tab, tabId) in getFirstTabs(listData.tabs || {}, 10)"
+                  v-for="(tab, tabId) in getFirstTabs(sessionTabs.tabs || {}, 10)"
                   :key="tabId"
                   class="tab-icon-item"
                   :class="{ 'ui-selected-tab-icon': tab.isUiSelected }"
@@ -253,16 +209,16 @@
 
                 <!-- Count indicator if more than 20 tabs -->
                 <div 
-                  v-if="Object.keys(listData.tabs || {}).length > 20"
+                  v-if="Object.keys(sessionTabs.tabs || {}).length > 20"
                   class="tab-count-indicator"
-                  :title="`${Object.keys(listData.tabs || {}).length - 20} more tabs`"
+                  :title="`${Object.keys(sessionTabs.tabs || {}).length - 20} more tabs`"
                 >
-                  ...{{ Object.keys(listData.tabs || {}).length - 20 }}...
+                  ...{{ Object.keys(sessionTabs.tabs || {}).length - 20 }}...
                 </div>
 
                 <!-- Last 10 tabs -->
                 <div
-                  v-for="(tab, tabId) in getLastTabs(listData.tabs || {}, 10)"
+                  v-for="(tab, tabId) in getLastTabs(sessionTabs.tabs || {}, 10)"
                   :key="tabId"
                   class="tab-icon-item"
                   :class="{ 'ui-selected-tab-icon': tab.isUiSelected }"
@@ -300,13 +256,29 @@ import { useTags } from '../stores/Tags'
 
 import { useTabClickDelegation } from '../composables/useTabClickDelegation'
 import { calculateContextMenuPos } from '../utils/contextMenuPosition'
-import PanelDisplaySetting from '@/panel/PanelDisplaySetting.vue'
-import TabCard from './TabCard.vue'
-import TabsContextMenu from './TabsContextMenu.vue'
+
+import TabCard from '@/tabs/TabCard.vue'
+import TabsContextMenu from '@/tabs/TabsContextMenu.vue'
+import SessionsRemoteFilter from '@/sessions-remote/SessionsRemoteFilter.vue'
 
 import { storeToRefs } from 'pinia'
 
-// Define emits
+// props
+const props = defineProps({
+  searchMode: {
+    type: Boolean,
+    default: false
+  },
+  searchResults: {
+    type: Array,
+    default: () => []
+  },
+  panelDisplayRef: {
+    type: Object,
+    default: null
+  }
+})
+
 const emit = defineEmits(['openSettings'])
 
 const tabsRemoteStore = useTabsRemote()
@@ -317,56 +289,21 @@ const tagsStore = useTags()
 
 // Get reactive references from the TabsRemote store
 const { 
-  tabsRemoteList, 
-  isWinRemoteLoaded, 
-  isWinRemoteLoading, 
+  sessionsRemote, 
+  isSessionsRemoteLoaded, 
+  isSessionsRemoteLoading, 
   lastError,
-  tabsRemoteNumTotal,
-  tabsRemoteRecent 
+  sessionRemoteTabNumTotal,
+  tabsRemoteRecent,
+  isFilterMode,
+  filterList,
+  sessionsRemoteFiltered
 } = storeToRefs(tabsRemoteStore)
 
 // Note: Selection state is now stored directly in tab.isUiSelected property for efficiency
 
-// ref to PanelDisplaySetting component
-const panelDisplayRef = ref(null)
-
-// configuration for PanelDisplaySetting - remote tabs specific
-const booleanItemsConfig = ref([
-  { name: 'showIcon', label: 'Icon', value: true, title: 'Toggle icon display' },
-  { name: 'showTitle', label: 'Title', value: true, title: 'Toggle title display' },
-  { name: 'showUrl', label: 'URL', value: true, title: 'Toggle URL display' },
-  { name: 'useResponsiveGrid', label: 'Auto', value: true, title: 'Auto-fit responsive grid' }
-])
-
-const rangeItemsConfig = ref([
-  { name: 'columnsPerRow', value: 2, min: 1, max: 4, step: 1, default: 2, title: 'Columns per row' },
-  { name: 'overviewIconSize', value: 20, min: 12, max: 48, step: 1, default: 20, title: 'Icon size' }
-])
-
-const selectItemsConfig = ref([
-  { 
-    name: 'displayMode', 
-    value: 'TabsBased', 
-    title: 'Display Mode',
-    options: [
-      { value: 'TabsBased', label: 'TabsBased', title: 'Show all tabs with full details' },
-      { value: 'WindowsBased', label: 'WindowsBased', title: 'Window/list overview with tab icons' }
-    ]
-  },
-  {
-    name: 'overviewIconMode',
-    value: 'all',
-    title: 'Tab Icons',
-    options: [
-      { value: 'all', label: 'All', title: 'Show all tab icons' },
-      { value: 'limited', label: 'Limited', title: 'Show first/last 10 icons with count' }
-    ]
-  }
-])
-
-const triggerItemsConfig = ref([
-  { name: 'refresh', icon: '↻', title: 'Refresh', disabled: false }
-])
+// Use passed panelDisplayRef from parent
+const panelDisplayRef = computed(() => props.panelDisplayRef)
 
 // computed values that reactively access panel display settings
 const displayMode = computed(() => panelDisplayRef.value?.selectItems?.displayMode?.value || 'TabsBased')
@@ -402,7 +339,13 @@ const { createGridEventHandlers, initShiftKeyTracking, updateTabsMap } = useTabC
 
 // State
 const isFetchingFromServer = ref(true)
+const isSearchMode = ref(false)
 const error = computed(() => lastError.value || '')
+
+// Scroll monitoring (component-specific)
+const isScrollReportPaused = ref(false)
+const sessionIdVisible = ref(null) // currently visible session id
+const scrollEventTimeout = ref(null) // throttling timeout
 
 // Initialize shift key tracking to prevent text selection during shift-click
 let cleanupShiftTracking = null
@@ -482,8 +425,47 @@ const tabsRemoteRecentCount = computed(() => {
   return tabsRemoteRecent.value.length
 })
 
+// grouped search results by list
+const searchResultsByList = computed(() => {
+  if (!isSearchMode.value || !props.searchResults) return {}
+  
+  const groupedResults = {}
+  props.searchResults.forEach(tab => {
+    const sessionId = tab.session_id || 'default'
+    if (!groupedResults[sessionId]) {
+      groupedResults[sessionId] = {
+        name: `List ${sessionId}`,
+        tabs: {}
+      }
+    }
+    groupedResults[sessionId].tabs[tab.id] = tab
+  })
+  return groupedResults
+})
+
+// display data - search results in search mode, filtered sessions in filter mode, regular sessions otherwise
+const displayData = computed(() => {
+  // Search mode takes priority over filter mode
+  if (isSearchMode.value) {
+    return searchResultsByList.value
+  }
+  
+  // Filter mode
+  if (isFilterMode.value) {
+    return sessionsRemoteFiltered.value
+  }
+  
+  // Regular mode
+  return sessionsRemote.value
+})
+
 // Helper functions
 // Note: getAllRemoteTabsFlat removed - now handled internally by TabsSelect store for better performance
+
+// filter change handler
+const handleFiltersChange = async (newFilters) => {
+  await tabsRemoteStore.handleFilterChange(newFilters)
+}
 
 // Methods
 const fetchRemoteTabs = async (forceRefresh = false) => {
@@ -514,7 +496,7 @@ const handleTabRemove = async (tab) => {
       console.warn(`handleTabRemove(): tabId: ${tab.id}. about to remove from panel`)
       // tabsSelectStore.removeClosedTab(tab.id, 'remote')
       // remove from local store
-      tabsRemoteStore.removeTabRemoteInLocal(tab)
+      tabsRemoteStore.removeTabRemoteFromLocalCache(tab)
     }
   } catch (error) {
     console.error('Error removing tab:', error)
@@ -588,7 +570,7 @@ const handleContextMenuAction = async (event) => {
           if (result.is_success) {
             console.log(`TabsRemote.vue: Successfully changed tab ${tab.id} type to url`)
             // Remove the tab locally since it's no longer url_cache type
-            tabsRemoteStore.removeTabRemoteInLocal(tab, false, true)
+            tabsRemoteStore.removeTabRemoteFromLocalCache(tab, false, true)
           } else {
             console.error('TabsRemote.vue: Failed to change tab type:', result.message)
           }
@@ -662,7 +644,7 @@ const { handleGridClick, handleGridDoubleClick, handleGridContextMenu } = create
     // Get tab ID and find tab object
     const parentClass = tab.cache.parentClass || 'tab-grid'
     console.log('TabsRemote.vue: onTabRightClick(): parentClass:', parentClass)
-    // const tab = tabsRemoteList.value[listId]?.tabs?.[tabId]
+    // const tab = sessionsRemote.value[sessionId]?.tabs?.[tabId]
     
     if(event.shiftKey || event.ctrlKey) {}else{
       tabsSelectStore.clearSelection('remote')
@@ -673,7 +655,7 @@ const { handleGridClick, handleGridDoubleClick, handleGridContextMenu } = create
     }
   },
   onTabRemove: handleTabRemove,
-  tabsData: tabsRemoteList,
+  tabsData: displayData,
   source: 'remote'
 })
 
@@ -759,9 +741,9 @@ const getLastTabs = (tabs, count) => {
   return tabArray.slice(-count)
 }
 
-// Update fast lookup map when tabsRemoteList changes
+// Update fast lookup map when displayData changes
 const updateRemoteTabsMap = () => {
-  updateTabsMap(tabsRemoteList, 'remote')
+  updateTabsMap(displayData, 'remote')
 }
 
 // watch refresh count to trigger refresh when button is clicked
@@ -771,8 +753,140 @@ watch(refreshCount, (newCount, oldCount) => {
   }
 })
 
-// Watch for changes in tabsRemoteList to update the fast lookup map
-watch(tabsRemoteList, updateRemoteTabsMap, { immediate: true })
+// Watch for changes in displayData to update the fast lookup map
+watch(displayData, updateRemoteTabsMap, { immediate: true })
+
+// Watch for search mode changes from parent
+watch(() => props.searchMode, (newSearchMode) => {
+  isSearchMode.value = newSearchMode
+})
+
+// Watch for search results from parent
+watch(() => props.searchResults, (newSearchResults) => {
+  if (isSearchMode.value && newSearchResults) {
+    console.log('TabsRemote: Received search results:', newSearchResults.length)
+  }
+})
+
+// Scroll monitoring functions (component-specific)
+const getVisibleSessionId = () => {
+  if (typeof document === 'undefined') return null
+  
+  const scrollContainer = document.querySelector('.lists-container')
+  if (!scrollContainer) return null
+  
+  const scrollTop = scrollContainer.scrollTop
+  
+  // Find the first session whose top is at or above the scroll position
+  let visibleSessionId = null
+  let minDistance = Infinity
+  
+  // Use session positions stored in the store (similar to windowPositions for TabsOpen)
+  const sessionPositions = tabsRemoteStore.sessionPositions || new Map()
+  
+  for (const [sessionId, position] of sessionPositions.entries()) {
+    if (position.top <= scrollTop + 10) { // 10px tolerance
+      const distance = scrollTop - position.top
+      if (distance < minDistance) {
+        minDistance = distance
+        visibleSessionId = sessionId
+      }
+    }
+  }
+  
+  // If no session is above scroll position, return the first session
+  if (visibleSessionId === null && sessionPositions.size > 0) {
+    const firstEntry = sessionPositions.entries().next().value
+    visibleSessionId = firstEntry[0]
+  }
+  
+  return visibleSessionId
+}
+
+const onScrollEvent = () => {
+  if (isScrollReportPaused.value) return
+  
+  // Throttle scroll events to max 0.1s frequency
+  if (scrollEventTimeout.value) return
+  
+  scrollEventTimeout.value = setTimeout(() => {
+    const newVisibleSessionId = getVisibleSessionId()
+    if (newVisibleSessionId !== sessionIdVisible.value) {
+      sessionIdVisible.value = newVisibleSessionId
+      console.log('TabsRemote: Visible session changed to:', newVisibleSessionId)
+    }
+    scrollEventTimeout.value = null
+  }, 100) // 0.1s = 100ms
+}
+
+// Scroll to specific session
+const scrollToSession = (sessionId) => {
+  const sessionContainer = document.querySelector(`.list-container[data-session-id="${sessionId}"]`)
+  if (!sessionContainer) {
+    console.warn(`scrollToSession(): Session container not found for sessionId: ${sessionId}`)
+    return
+  }
+  
+  const scrollContainer = document.querySelector('.lists-container')
+  if (!scrollContainer) {
+    console.warn('scrollToSession(): Lists container not found')
+    return
+  }
+  
+  // Pause scroll reporting during programmatic scroll
+  isScrollReportPaused.value = true
+  
+  // Calculate scroll position relative to the scroll container
+  const containerRect = scrollContainer.getBoundingClientRect()
+  const sessionRect = sessionContainer.getBoundingClientRect()
+  const currentScrollTop = scrollContainer.scrollTop
+  
+  // Calculate the target scroll position
+  const targetScrollTop = currentScrollTop + (sessionRect.top - containerRect.top) + 3 // 3px offset from top
+  
+  // Smooth scroll to the session
+  scrollContainer.scrollTo({
+    top: targetScrollTop,
+    behavior: 'smooth'
+  })
+  
+  // Resume scroll reporting after scroll animation completes
+  setTimeout(() => {
+    isScrollReportPaused.value = false
+    // Trigger position update and check visible session
+    updateSessionPositions()
+    onScrollEvent()
+  }, 500) // 500ms should be enough for smooth scroll animation
+  
+  console.log(`scrollToSession(): Scrolled to session ${sessionId}`)
+}
+
+// Update session positions for scroll monitoring
+const updateSessionPositions = () => {
+  if (typeof document === 'undefined') return
+  
+  const sessionContainers = document.querySelectorAll('.list-container[data-session-id]')
+  const sessionPositions = new Map()
+  
+  sessionContainers.forEach(container => {
+    const sessionId = container.dataset.sessionId
+    const rect = container.getBoundingClientRect()
+    const scrollContainer = document.querySelector('.lists-container')
+    if (scrollContainer) {
+      const scrollRect = scrollContainer.getBoundingClientRect()
+      const relativeTop = rect.top - scrollRect.top + scrollContainer.scrollTop
+      sessionPositions.set(sessionId, {
+        top: relativeTop,
+        height: rect.height
+      })
+    }
+  })
+  
+  // Store positions in the store for access by scroll monitoring
+  if (tabsRemoteStore.setSessionPositions) {
+    tabsRemoteStore.setSessionPositions(sessionPositions)
+  }
+}
 
 // Watch for changes in the fetchAllRemoteTabsOnInit setting
 watch(
@@ -793,6 +907,17 @@ onMounted(async () => {
   
   // Add click listener to close context menu
   document.addEventListener('click', handleClickOutside)
+  
+  // Add scroll listener for session position tracking
+  const scrollContainer = document.querySelector('.lists-container')
+  if (scrollContainer) {
+    scrollContainer.addEventListener('scroll', onScrollEvent)
+    // Initial position update
+    setTimeout(() => {
+      updateSessionPositions()
+      onScrollEvent()
+    }, 100)
+  }
   
   // Clear relative time cache periodically (every 5 minutes)
   const cacheClearInterval = setInterval(() => {
@@ -828,12 +953,32 @@ onUnmounted(() => {
   // Remove click listener
   document.removeEventListener('click', handleClickOutside)
   
+  // Remove scroll listener
+  const scrollContainer = document.querySelector('.lists-container')
+  if (scrollContainer) {
+    scrollContainer.removeEventListener('scroll', onScrollEvent)
+  }
+  
+  // Cleanup scroll event timeout
+  if (scrollEventTimeout.value) {
+    clearTimeout(scrollEventTimeout.value)
+    scrollEventTimeout.value = null
+  }
+  
   // Clear the relative time cache
   relativeTimeCache.clear()
 })
 
 // Expose methods for parent components
-defineExpose({})
+defineExpose({
+  scrollToSession,
+  sessionIdVisible,
+  getVisibleSessionId,
+  onScrollEvent,
+  isScrollReportPaused,
+  isFilterMode,
+  filterList
+})
 </script>
 
 <style scoped>
@@ -848,9 +993,9 @@ defineExpose({})
 
 .tabs-remote-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
-  padding: 12px 16px;
+  padding: 8px 12px;
   background-color: #f0f8ff;
   border-bottom: 1px solid #1a73e8;
   width: 100%;
@@ -865,6 +1010,16 @@ defineExpose({})
   font-size: 14px;
   color: #1a73e8;
   font-weight: 500;
+}
+
+.search-indicator {
+  color: #0d652d;
+  font-weight: 600;
+}
+
+.filter-indicator {
+  color: #1a73e8;
+  font-weight: 600;
 }
 
 .initialization-state {
@@ -952,37 +1107,39 @@ defineExpose({})
   margin-bottom: 16px;
 }
 
-.list-header {
+.session-remote-header {
+  padding: 6px 0;
+  background-color: transparent;
+}
+
+.remote-divider {
+  position: relative;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  background-color: #e8f0fe;
-  border-bottom: 1px solid #1a73e8;
+  justify-content: space-between;
+  padding: 0 16px;
 }
 
-.list-title {
-  font-size: 16px;
-  font-weight: 500;
-  color: #1a73e8;
+.remote-divider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background-color: #dadce0;
+  z-index: 1;
 }
 
-.tab-count {
-  font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
+.remote-title {
   font-size: 14px;
-  font-weight: bold;
-  color: #87ceeb;
-  background-color: #666;
-  padding: 2px 6px;
-  border-radius: 3px;
-  border: 1px solid #999;
-  letter-spacing: 1px;
-  min-width: 20px;
-  text-align: center;
-  display: inline-block;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background-color: white;
+  padding: 0 8px;
+  z-index: 2;
+  position: relative;
 }
-
-
 
 .tab-virtual-icon {
   width: 16px;

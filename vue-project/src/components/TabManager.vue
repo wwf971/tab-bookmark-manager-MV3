@@ -5,66 +5,6 @@
         <h1>Tab Manager</h1>
         <TabsPin />
       </div>
-      
-      <!-- Level 1: Main Content Switcher -->
-      <div class="main-content-switcher">
-        <div class="switcher-track">
-          <div 
-            class="switcher-slider"
-            :style="{ transform: `translateX(${mainViewIndex * 100}%)` }"
-          ></div>
-          <button 
-            v-for="(view, index) in mainViews" 
-            :key="view.id"
-            class="switcher-button"
-            :class="{ active: mainView === view.id }"
-            @click="switchMainView(view.id)"
-          >
-            <span v-html="view.label"></span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Level 2: Tab Type Toggles (only shown when mainView is 'tabs') -->
-      <div v-if="mainView === 'tabs'" class="tab-type-toggles">
-        <div class="toggle-buttons-container">
-          <!-- Tabs Section -->
-          <div class="button-group">
-            <div class="group-label">Tabs</div>
-            <div class="buttons-row">
-              <button 
-                v-for="tabType in tabTypes" 
-                :key="tabType.id"
-                class="tab-toggle-btn"
-                :class="{ active: activeTabTypes.has(tabType.id), disabled: tabType.disabled }"
-                @click="toggleTabType(tabType.id)"
-                :disabled="tabType.disabled"
-              >
-                {{ tabType.shortLabel }}
-                <span v-if="tabType.disabled" class="coming-soon-small">*</span>
-              </button>
-            </div>
-          </div>
-          
-          <!-- Bookmarks Section -->
-          <div class="button-group">
-            <div class="group-label">Bookmarks</div>
-            <div class="buttons-row">
-              <button 
-                v-for="bookmarkType in bookmarkTypes" 
-                :key="bookmarkType.id"
-                class="tab-toggle-btn"
-                :class="{ active: activeBookmarkTypes.has(bookmarkType.id), disabled: bookmarkType.disabled }"
-                @click="toggleBookmarkType(bookmarkType.id)"
-                :disabled="bookmarkType.disabled"
-              >
-                {{ bookmarkType.shortLabel }}
-                <span v-if="bookmarkType.disabled" class="coming-soon-small">*</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
     </header>
 
     <!-- Content Views -->
@@ -112,10 +52,6 @@
         </div>
       </div>
     </div>
-
-
-
-
 
     <!-- Upload Modal -->
     <TabsUploadModal
@@ -230,50 +166,6 @@ const mainViewIndex = computed(() =>
 const otherViewIndex = computed(() => 
   otherViews.findIndex(view => view.id === otherView.value)
 )
-
-// Methods
-const refreshTabs = () => {
-  // Refresh is now handled by the TabsOpen store automatically
-  console.log('Tab refresh triggered')
-}
-
-const toggleTabMode = () => {
-  tabMode.value = (tabMode.value + 1) % 3
-  applyTabMode()
-}
-
-const switchMainView = (viewId) => {
-  mainView.value = viewId
-}
-
-const switchOtherView = (viewId) => {
-  if (viewId === 'snapshots' && !hasLoadedSnapshots.value) {
-    hasLoadedSnapshots.value = true
-  }
-  otherView.value = viewId
-}
-
-const toggleTabType = (typeId) => {
-  const tabType = tabTypes.find(t => t.id === typeId)
-  if (tabType?.disabled) return
-  
-  if (activeTabTypes.value.has(typeId)) {
-    activeTabTypes.value.delete(typeId)
-  } else {
-    activeTabTypes.value.add(typeId)
-  }
-}
-
-const toggleBookmarkType = (typeId) => {
-  const bookmarkType = bookmarkTypes.find(t => t.id === typeId)
-  if (bookmarkType?.disabled) return
-  
-  if (activeBookmarkTypes.value.has(typeId)) {
-    activeBookmarkTypes.value.delete(typeId)
-  } else {
-    activeBookmarkTypes.value.add(typeId)
-  }
-}
 
 const handleTabActivate = async (tab) => {
   try {
@@ -540,56 +432,6 @@ h1 {
 .buttons-row {
   display: flex;
   gap: 0;
-}
-
-.tab-toggle-btn {
-  padding: 8px 16px;
-  border: 1px solid #e0e0e0;
-  border-radius: 2px;
-  background: white;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  position: relative;
-  border-right: none;
-}
-
-.tab-toggle-btn:first-child {
-  border-radius: 2px 0 0 2px;
-}
-
-.tab-toggle-btn:last-child {
-  border-radius: 0 2px 2px 0;
-  border-right: 1px solid #e0e0e0;
-}
-
-.tab-toggle-btn:hover:not(.disabled) {
-  background: #f5f5f5;
-  color: #1a73e8;
-  z-index: 1;
-}
-
-.tab-toggle-btn.active {
-  background: #1a73e8;
-  border-color: #1a73e8;
-  color: white;
-  z-index: 2;
-}
-
-.tab-toggle-btn.disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  background: #f9f9f9;
-  color: #9e9e9e;
-}
-
-.coming-soon-small {
-  font-size: 10px;
-  font-weight: normal;
-  opacity: 0.7;
-  margin-left: 2px;
 }
 
 /* Sub-content switcher for other functions */

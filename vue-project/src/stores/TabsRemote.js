@@ -4,10 +4,18 @@ import { useNetworkRequest } from './NetworkRequest'
 import { useTabsSearch } from './TabsSearch'
 import { useSettingStore } from './Settings'
 import { storeToRefs } from 'pinia'
+import {
+  removeTabRemote,
+  uploadTabToRemote,
+  uploadTabsToRemote,
+  fetchTabsRemoteFromServer as _fetchTabsRemoteFromServer,
+  searchTabsRemoteByTags as _searchTabsRemoteByTags
+} from './TabsRemoteRequest.js'
+import { useServerStore } from '@/stores/Server.js'
 
 import axios from 'axios'
 
-// Create an axios instance with default config (same as NetworkRequest)
+// create an axios instance with default config (same as NetworkRequest)
 const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
@@ -23,14 +31,14 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
   const { settingsComputed } = storeToRefs(settingStore)
 
   // remote tabs
-  const tabsRemoteList = ref({}) // { listId: { name: string, tabs: { tabId: { url, text, time_create, isUiSelected, ... } } } }
-  // Recent remote tabs - using array for simpler iteration
+  const sessionsRemote = ref({}) // { sessionId: { name: string, tabs: { tabId: { url, text, time_create, isUiSelected, ... } } } }
+  // recent remote tabs - using array for simpler iteration
   const tabsRemoteRecent = ref([]) // Array of tab objects
-
-  // Mode
+  
+  // if false, fetch tabs only during search
   const isFetchAllTabsFromRemoteOnInit = ref(false) // its value come from Settings.js
 
-  // switch to fetchAllTabsMode: all remote tabs from remote server --load into--> tabsRemoteList
+  // switch to fetchAllTabsMode: all remote tabs from remote server --load into--> sessionsRemote
   const initFetchAllTabsMode = async () => {
     try {
       const result = await settingStore.getSettingComputed('fetchAllRemoteTabsOnInit', false)
@@ -74,32 +82,41 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
     }
   })
 
-  // User-selected tabs
+  // user-selected tabs
   const tabsRemoteUiSelected = []
 
-  // Fast lookup map for tab objects (tabId -> { tab, listId })
+  // fast lookup map for tab objects (tabId -> { tab, sessionId })
   const tabsMapRemote = ref(new Map())
+  
+  // session position tracking for scroll monitoring
+  const sessionPositions = ref(new Map()) // sessionId -> { top: number, height: number }
+  
+  // filter mode and state
+  const isFilterMode = ref(false)
+  const filterList = ref([]) // array of active filters: ['all', 'recent']
+  const hasRecentTabsBeenFetched = ref(false) // track if recent tabs have been fetched
 
-  // Loading state
-  const isWinRemoteLoaded = ref(false)
-  const isWinRemoteLoading = ref(false)
+  // loading state
+  const isSessionsRemoteLoaded = ref(false)
+  const isSessionsRemoteLoading = ref(false)
   const lastError = ref(null)
 
-  // Computed
-  const tabsRemoteNumTotal = computed(() => {
-    return Object.values(tabsRemoteList.value).reduce((total, listData) => {
-      return total + Object.keys(listData.tabs || {}).length
+  // computed
+  const sessionRemoteTabNumTotal = computed(() => {
+    return Object.values(sessionsRemote.value).reduce((total, sessionTabs) => {
+      return total + Object.keys(sessionTabs.tabs || {}).length
     }, 0)
   })
 
-  const tabsRemoteListCount = computed(() => {
-    return Object.keys(tabsRemoteList.value).length
+  const sessionsRemoteNum = computed(() => {
+    return Object.keys(sessionsRemote.value).length
   })
 
-  // Methods
+
   const fetchTabsRemoteRecent = async (num = 50) => {
     try {
-      const serverUrlResult = networkRequest.getServerEndpoint('/url_pool/')
+      const serverStore = useServerStore()
+      const serverUrlResult = serverStore.getServerEndpoint('/url_pool/')
       if (!serverUrlResult.is_success) {
         console.error('TabsRemote.fetchTabsRemoteRecent() error:', serverUrlResult.message)
         return []
@@ -119,7 +136,7 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
         // console.log('fetchTabsRemoteRecent(): tabsMapRemote(before):', tabsMapRemote)
         
         // Ensure tabsMapRemote is ready before using it
-        if (tabsMapRemote.value.size === 0 && isWinRemoteLoaded.value) {
+        if (tabsMapRemote.value.size === 0 && isSessionsRemoteLoaded.value) {
           // console.log('fetchTabsRemoteRecent(): tabsMapRemote is empty, updating it first')
           updateTabsMapRemote()
         }
@@ -135,7 +152,7 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
           const tabInfo = tabsMapRemote.value.get(tabId)
           // console.log(`fetchTabsRemoteRecent(): tabId: ${tabId}, tabInfo:`, tabInfo)
           if (tabInfo) {
-            // Directly push the tabInfo which contains { tab, listId }
+            // Directly push the tabInfo which contains { tab, sessionId }
             tabsRemoteRecent.value.push(tabInfo.tab)
             foundCount++
           } else {
@@ -169,73 +186,75 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
     }
     
     // Prevent concurrent requests
-    if (isWinRemoteLoading.value && !forceRefresh) {
+    if (isSessionsRemoteLoading.value && !forceRefresh) {
       return { is_success: false, message: 'Already loading' }
     }
 
     lastError.value = null
-    isWinRemoteLoading.value = true
+    isSessionsRemoteLoading.value = true
 
-    try { // First ensure remote settings are loaded
+    try {
+      // first ensure remote settings are loaded
+      const serverStore = useServerStore()
       try {
-        await networkRequest.getSettingsServer()
+        await serverStore.getSettingsServer()
       } catch (settingsError) {
         console.warn('Failed to load remote settings:', settingsError)
         lastError.value = 'Failed to load remote settings. Please check your configuration.'
-        isWinRemoteLoading.value = false
+        isSessionsRemoteLoading.value = false
         return { is_success: false, message: lastError.value }
       }
       
-      // Then check if URL is configured
-      const urlCurrent = networkRequest.getUrlCurrent
+      // then check if URL is configured
+      const urlCurrent = serverStore.getUrlCurrent()
       if (!urlCurrent) {
         lastError.value = 'No server URL configured. Please configure in Remote Settings.'
-        isWinRemoteLoading.value = false
+        isSessionsRemoteLoading.value = false
         return { is_success: false, message: lastError.value }
       }
 
       // Check server connection/authentication status
       const status = serverStore.getServerStatusCurrent()
       if (!status || Date.now() - (status.lastChecked || 0) > 30000) {
-        await networkRequest.testServerConnection(urlCurrent.id)
+        await serverStore.testServerConnection(urlCurrent.id)
       }
 
       const currentStatus = serverStore.getServerStatusCurrent()
       if (currentStatus?.type === 'error') {
         lastError.value = `Server connection error: ${currentStatus.text}`
-        isWinRemoteLoading.value = false
+        isSessionsRemoteLoading.value = false
         return { is_success: false, message: lastError.value }
       }
 
       if (currentStatus?.requiresLogin) {
         lastError.value = 'Login required. Please login in the Upload Tab first.'
-        isWinRemoteLoading.value = false
+        isSessionsRemoteLoading.value = false
         return { is_success: false, message: lastError.value }
       }
 
       // Load regular tabs first, then recent tabs
-      const tabsResult = await networkRequest.fetchTabsFromRemote('', forceRefresh)
-      
-      if (tabsResult.is_success && tabsResult.data) {
+      const result = await _fetchTabsRemoteFromServer('', forceRefresh)
+  
+      if (result.is_success && result.data) {
         // Process the data to add isUiSelected property and rename urls to tabs
         const processedData = {}
-        Object.entries(tabsResult.data).forEach(([listId, listData]) => {
-          processedData[listId] = {
-            ...listData,
+        Object.entries(result.data).forEach(([sessionId, sessionTabs]) => {
+          processedData[sessionId] = {
+            ...sessionTabs,
             tabs: {}
           }
           
           // Process each URL/tab and add isUiSelected property
-          Object.entries(listData.urls || {}).forEach(([tabId, tab]) => {
-            processedData[listId].tabs[tabId] = reactive({
+          Object.entries(sessionTabs.urls || {}).forEach(([tabId, tab]) => {
+            processedData[sessionId].tabs[tabId] = reactive({
               ...tab,
               isUiSelected: false // Initialize selection state
             })
           })
         })
         
-        tabsRemoteList.value = processedData
-        isWinRemoteLoaded.value = true
+        sessionsRemote.value = processedData
+        isSessionsRemoteLoaded.value = true
         lastError.value = null
         
         // Update the fast lookup map
@@ -244,42 +263,30 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
         // Clear selected tabs when reloading (since tab objects are new)
         tabsRemoteUiSelected.length = 0
         
-        // Now load recent tabs after the map is populated
+        // now load recent tabs after the map is populated
         await fetchTabsRemoteRecent(50)
       } else {
-        lastError.value = tabsResult.message || 'Failed to fetch remote tabs'
+        lastError.value = result.message || 'Failed to fetch remote tabs'
       }
-      return tabsResult
+      return result
     } catch (err) {
       console.error('Error loading remote tabs:', err)
       lastError.value = `Network error: ${err.message || 'Failed to connect to server'}`
       return { is_success: false, message: lastError.value }
     } finally {
-      isWinRemoteLoading.value = false
+      isSessionsRemoteLoading.value = false
     }
   }
 
-  const removeTabRemote = async (tab) => {
-    try {
-      // console.error('TabsRemote.removeTabRemote(): tab:', tab)
-      const result = await networkRequest.remove_url_cache(tab)
-      // console.log('removeTabRemote(): server result:', result)
-      return result
-    } catch (error) {
-      console.error('Error removing tab from cache:', error)
-      return { is_success: false, message: error.message }
-    }
-  }
-
-  const removeTabRemoteInLocal = (tab, refreshTabsRemoteRecent=false, removeFromSearchResults=true) => {
-    console.warn(`removeTabRemoteInLocal(): tabId: ${tab.id}. about to remove from panel`)
+  const removeTabRemoteFromLocalCache = (tab, refreshTabsRemoteRecent=false, removeFromSearchResults=true) => {
+    console.warn(`removeTabRemoteFromLocalCache(): tabId: ${tab.id}. about to remove from panel`)
     
     // Store the tab reference for search store notification
     const removedTab = tab
     
-    // Find and remove the tab from local tabsRemoteList
-    for (const [listId, listData] of Object.entries(tabsRemoteList.value)) {
-      const tabs = listData.tabs || {}
+    // Find and remove the tab from local sessionsRemote
+    for (const [sessionId, sessionTabs] of Object.entries(sessionsRemote.value)) {
+      const tabs = sessionTabs.tabs || {}
       for (const [tabId, tabData] of Object.entries(tabs)) {
         if (tabId === tab.id) {
           delete tabs[tabId]
@@ -293,7 +300,7 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
           if (recentIndex > -1) {
             tabsRemoteRecent.value.splice(recentIndex, 1)
           }
-          console.log(`Removed tab ${tabId} from list ${listId}`)
+          console.log(`Removed tab ${tabId} from list ${sessionId}`)
           if(refreshTabsRemoteRecent){
           // Refresh recent tabs from server
             fetchTabsRemoteRecent(50)
@@ -314,11 +321,11 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
     try {
       // Instead of refreshing all data from server, add tabs locally for efficiency
       tabsRemoteCreated.forEach((tabRemote, index) => {
-        // TODO: if tabRemote.list_id is a newly created list, not in tabsRemoteList
-          // we'll need to create a new list in tabsRemoteList
+        // TODO: if tabRemote.session_id is a newly created list, not in sessionsRemote
+          // we'll need to create a new list in sessionsRemote
         // Add to the list specified by the server response
-        addTabRemoteInLocal(tabRemote.list_id, tabRemote)
-        console.log(`onTabsOpenUploadedToRemote(): Added tab "${tabRemote.text || tabRemote.title || 'Untitled'}" to list "${tabRemote.list_id}"`)
+        addTabRemoteInLocal(tabRemote.session_id, tabRemote)
+        console.log(`onTabsOpenUploadedToRemote(): Added tab "${tabRemote.text || tabRemote.title || 'Untitled'}" to list "${tabRemote.session_id}"`)
       })
       
       // Only refresh recent tabs to show the newly uploaded tabs in the virtual window
@@ -342,12 +349,12 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
     
     // Mark uploaded tabs as selected to notify the user (outside try-catch)
     tabsRemoteCreated.forEach((tabRemote) => {
-      const listId = tabRemote.list_id
+      const sessionId = tabRemote.session_id
       const tabId = tabRemote.id
       
-      // Find the tab in tabsRemoteList and mark it as selected
-      if (tabsRemoteList.value[listId] && tabsRemoteList.value[listId].tabs[tabId]) {
-        const tabRemote = tabsRemoteList.value[listId].tabs[tabId]
+      // Find the tab in sessionsRemote and mark it as selected
+      if (sessionsRemote.value[sessionId] && sessionsRemote.value[sessionId].tabs[tabId]) {
+        const tabRemote = sessionsRemote.value[sessionId].tabs[tabId]
         // const tabRemote = tabInfo.tab
         console.log(`onTabsOpenUploadedToRemote(): tabRemote:`, tabRemote)
         tabRemote.isUiSelected = true
@@ -359,13 +366,13 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
     })
     console.log('onTabsOpenUploadedToRemote(): Selected uploaded tabs for user notification')
   }
-  const addTabRemoteInLocal = (listId, tabData) => {
-    if (!tabsRemoteList.value[listId]) {
-      tabsRemoteList.value[listId] = { name: `List ${listId}`, tabs: {} }
+  const addTabRemoteInLocal = (sessionId, tabData) => {
+    if (!sessionsRemote.value[sessionId]) {
+      sessionsRemote.value[sessionId] = { name: `List ${sessionId}`, tabs: {} }
     }
     
     const tabId = tabData.id || `tab_${Date.now()}`
-    tabsRemoteList.value[listId].tabs[tabId] = reactive({
+    sessionsRemote.value[sessionId].tabs[tabId] = reactive({
       ...tabData,
       isUiSelected: false,
       // Ensure we have proper title fields for display
@@ -375,30 +382,30 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
     
     // Update the fast lookup map
     tabsMapRemote.value.set(tabId, { 
-      tab: tabsRemoteList.value[listId].tabs[tabId], 
-      listId 
+      tab: sessionsRemote.value[sessionId].tabs[tabId], 
+      sessionId 
     })
     
-    console.log(`addTabRemoteInLocal(): Added tab "${tabData.text || tabData.title || 'Untitled'}" to list "${listId}"`)
+    console.log(`addTabRemoteInLocal(): Added tab "${tabData.text || tabData.title || 'Untitled'}" to list "${sessionId}"`)
     
     // Don't refresh recent tabs here as it's called from onTabsOpenUploadedToRemote which already does it
     // fetchTabsRemoteRecent(50)
   }
 
   const updateTabInLocal = (tabId, updatedData) => {
-    for (const [listId, listData] of Object.entries(tabsRemoteList.value)) {
-      if (listData.tabs && listData.tabs[tabId]) {
-        tabsRemoteList.value[listId].tabs[tabId] = { ...listData.tabs[tabId], ...updatedData }
+    for (const [sessionId, sessionTabs] of Object.entries(sessionsRemote.value)) {
+      if (sessionTabs.tabs && sessionTabs.tabs[tabId]) {
+        sessionsRemote.value[sessionId].tabs[tabId] = { ...sessionTabs.tabs[tabId], ...updatedData }
         return
       }
     }
   }
 
   const clearCache = () => {
-    tabsRemoteList.value = {}
+    sessionsRemote.value = {}
     tabsRemoteRecent.value.length = 0
-    isWinRemoteLoaded.value = false
-    isWinRemoteLoading.value = false
+    isSessionsRemoteLoaded.value = false
+    isSessionsRemoteLoading.value = false
     lastError.value = null
   }
 
@@ -430,15 +437,15 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
   }
 
   // Helper methods for filtering and organizing data
-  const getTabsByList = (listId) => {
-    const listData = tabsRemoteList.value[listId]
-    if (!listData || !listData.tabs) return []
+  const getTabsByList = (sessionId) => {
+    const sessionTabs = sessionsRemote.value[sessionId]
+    if (!sessionTabs || !sessionTabs.tabs) return []
     
-    return Object.entries(listData.tabs).map(([tabId, tab]) => ({
+    return Object.entries(sessionTabs.tabs).map(([tabId, tab]) => ({
       ...tab,
       tabId,
-      listId,
-      listName: listData.name || `List ${listId}`
+      sessionId,
+      listName: sessionTabs.name || `List ${sessionId}`
     }))
   }
 
@@ -469,27 +476,99 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
     return getTabsByDateRange(startOfWeek, endOfWeek)
   }
 
-  // Update the fast lookup map when tabsRemoteList changes
+  // update the fast lookup map when sessionsRemote changes
   const updateTabsMapRemote = () => {
     tabsMapRemote.value.clear()
-    Object.entries(tabsRemoteList.value).forEach(([listId, listData]) => {
-      Object.entries(listData.tabs || {}).forEach(([tabId, tab]) => {
-        tabsMapRemote.value.set(tabId, { tab, listId })
+    Object.entries(sessionsRemote.value).forEach(([sessionId, sessionTabs]) => {
+      Object.entries(sessionTabs.tabs || {}).forEach(([tabId, tab]) => {
+        tabsMapRemote.value.set(tabId, { tab, sessionId })
       })
     })
     console.log(`updateTabsMapRemote(): Updated map with ${tabsMapRemote.value.size} tabs`)
   }
-
-  // Method for composable to call (alias for updateTabsMapRemote)
+  // method for composable to call (alias for updateTabsMapRemote)
   const updateTabsMap = () => {
     updateTabsMapRemote()
   }
+  
+  // session position tracking methods
+  const setSessionPositions = (positions) => {
+    sessionPositions.value = positions
+  }
+  
+  const getSessionPositions = () => {
+    return sessionPositions.value
+  }
+  
+  // filter matching logic
+  const matchesFilter = (tab, sessionId) => {
+    if (filterList.value.length === 0 || filterList.value.includes('all')) {
+      return true
+    }
+    
+    return filterList.value.some(filter => {
+      switch (filter) {
+        case 'recent':
+          // Check if tab is in the recent tabs list
+          return tabsRemoteRecent.value.some(recentTab => recentTab.id === tab.id)
+        default:
+          return false
+      }
+    })
+  }
+  
+  // filtered sessions based on filter mode and criteria
+  const sessionsRemoteFiltered = computed(() => {
+    if (!isFilterMode.value || filterList.value.length === 0 || filterList.value.includes('all')) {
+      return sessionsRemote.value || {}
+    }
+    
+    const filtered = {}
+    Object.entries(sessionsRemote.value || {}).forEach(([sessionId, sessionTabs]) => {
+      const filteredTabs = {}
+      Object.entries(sessionTabs.tabs || {}).forEach(([tabId, tab]) => {
+        if (matchesFilter(tab, sessionId)) {
+          filteredTabs[tabId] = tab
+        }
+      })
+      
+      // Only include lists that have matching tabs
+      if (Object.keys(filteredTabs).length > 0) {
+        filtered[sessionId] = {
+          ...sessionTabs,
+          tabs: filteredTabs
+        }
+      }
+    })
+    
+    return filtered
+  })
+  
+  // handle filter changes and fetch recent tabs if needed
+  const handleFilterChange = async (newFilters) => {
+    // Check if 'recent' is being activated for the first time
+    const wasRecentActive = filterList.value.includes('recent')
+    const isRecentBecomingActive = newFilters.includes('recent') && !wasRecentActive
+    
+    filterList.value = newFilters
+    isFilterMode.value = newFilters.length > 0 && !newFilters.includes('all')
+    
+    // Fetch recent tabs if 'recent' is activated for the first time
+    if (isRecentBecomingActive && !hasRecentTabsBeenFetched.value) {
+      console.log('TabsRemote store: Fetching recent tabs for the first time')
+      try {
+        await fetchTabsRemoteRecent(50)
+        hasRecentTabsBeenFetched.value = true
+      } catch (error) {
+        console.error('TabsRemote store: Error fetching recent tabs:', error)
+      }
+    }
+  }
 
-  // Search functions for remote tabs
+
   const searchTabsRemoteByTags = async (tags_id = []) => {
     try {
-      const result = await networkRequest.searchTabsRemoteByTags(tags_id)
-
+      const result = await _searchTabsRemoteByTags(tags_id)
       if (result.is_success) {
         // Process and cache the search results
         const searchResults = result.data || []
@@ -543,7 +622,7 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
   }
 
 
-  // Helper function to cache search results in tabsRemoteList
+  // Helper function to cache search results in sessionsRemote
   const cacheSearchResults = (results) => {
     if (!Array.isArray(results)) {
       console.warn('cacheSearchResults: results is not an array:', results)
@@ -554,21 +633,21 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
     const resultsByListId = {}
     
     results.forEach((tab, index) => {
-      const listId = tab.list_id || 'default'
-      if (!resultsByListId[listId]) {
-        resultsByListId[listId] = []
+      const sessionId = tab.session_id || 'default'
+      if (!resultsByListId[sessionId]) {
+        resultsByListId[sessionId] = []
       }
-      resultsByListId[listId].push(tab)
+      resultsByListId[sessionId].push(tab)
     })
 
-    // Process each list and add tabs to existing tabsRemoteList structure
+    // Process each list and add tabs to existing sessionsRemote structure
     const cachedTabs = []
     
-    for (const [listId, tabsData] of Object.entries(resultsByListId)) {
-      // Ensure the list exists in tabsRemoteList
-      if (!tabsRemoteList.value[listId]) {
-        tabsRemoteList.value[listId] = {
-          name: `List ${listId}`,
+    for (const [sessionId, tabsData] of Object.entries(resultsByListId)) {
+      // Ensure the list exists in sessionsRemote
+      if (!sessionsRemote.value[sessionId]) {
+        sessionsRemote.value[sessionId] = {
+          name: `List ${sessionId}`,
           tabs: {},
           cached_at: Date.now()
         }
@@ -592,26 +671,26 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
           tags_id: tab.tags_id || [],
           tags_name: tab.tags_name || [],
           isUiSelected: false,
-          listId: listId,
+          sessionId: sessionId,
           ...tab
         }
         
-        // Add to tabsRemoteList
-        tabsRemoteList.value[listId].tabs[tabId] = transformedTab
+        // Add to sessionsRemote
+        sessionsRemote.value[sessionId].tabs[tabId] = transformedTab
         
         // Collect reference to the cached tab
-        cachedTabs.push(tabsRemoteList.value[listId].tabs[tabId])
+        cachedTabs.push(sessionsRemote.value[sessionId].tabs[tabId])
       })
       
       // Update the cached_at timestamp for this list
-      tabsRemoteList.value[listId].cached_at = Date.now()
+      sessionsRemote.value[sessionId].cached_at = Date.now()
     }
 
     // Update the fast lookup map
     updateTabsMapRemote()
     
     // Mark as loaded
-    isWinRemoteLoaded.value = true
+    isSessionsRemoteLoaded.value = true
     
     console.log(`TabsRemote: Cached ${results.length} remote tabs across ${Object.keys(resultsByListId).length} lists`)
     
@@ -621,23 +700,23 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
 
   return {
     // State
-    tabsRemoteList,
-    isWinRemoteLoaded,
-    isWinRemoteLoading,
+    sessionsRemote,
+    isSessionsRemoteLoaded,
+    isSessionsRemoteLoading,
     lastError,
     tabsRemoteUiSelected,
     tabsRemoteRecent,
     tabsMapRemote,
 
     // Computed
-    tabsRemoteNumTotal,
-    tabsRemoteListCount,
+    sessionRemoteTabNumTotal,
+    sessionsRemoteNum,
 
     // Methods
     loadRemoteTabs,
     fetchTabsRemoteRecent,
     removeTabRemote,
-    removeTabRemoteInLocal,
+    removeTabRemoteFromLocalCache,
     addTabRemoteInLocal,
     updateTabInLocal,
     clearCache,
@@ -659,6 +738,19 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
 
     // New method
     updateTabsMap,
+    
+    // Session position tracking
+    sessionPositions,
+    setSessionPositions,
+    getSessionPositions,
+    
+    // Filter mode
+    isFilterMode,
+    filterList,
+    sessionsRemoteFiltered,
+    matchesFilter,
+    handleFilterChange,
+    hasRecentTabsBeenFetched,
     
     // Search methods
     searchTabsRemote,

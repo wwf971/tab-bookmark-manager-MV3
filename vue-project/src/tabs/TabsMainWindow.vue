@@ -5,37 +5,76 @@
       <!-- Open Sessions Group -->
       <div class="session-group" :class="{ 'current': sessionGroupNameCurrent === 'open' }">
         <div class="session-group-header">
-          <div class="session-group-title">Open Windows</div>
-          <div class="session-group-count">{{ openWindows.length }} window{{ openWindows.length !== 1 ? 's' : '' }}</div>
+          <div class="session-group-title">Active Sessions</div>
+          <div class="session-group-counts">
+            <div v-if="searchState.isSearchActive" class="search-result-count">
+              {{ openSessionSearchCount }}
+            </div>
+            <div class="session-group-count">{{ openWindows.length }} window{{ openWindows.length !== 1 ? 's' : '' }}</div>
+          </div>
         </div>
         
         <div class="session-cards">
-          <div 
+          <SessionCard
             v-for="window in openWindows" 
             :key="window.id"
-            class="session-card"
-            :class="{ 'current': sessionCardIdCurrent === getSessionCardId(window.id) }"
-            :data-session-card-id="getSessionCardId(window.id)"
+            :session-name="getSessionDisplayName(window.id)"
+            :tab-count="window.tabs.length"
+            :session-card-id="getSessionCardId(window.id)"
+            :is-current="sessionCardIdCurrent === getSessionCardId(window.id)"
+            :is-current-window="window.id === windowCurrentId"
+            :should-display-search-result="searchState.isSearchActive"
+            :search-result-tab-num="openWindowSearchCounts[window.id] || 0"
             @click="selectSession('open', window.id)"
             @contextmenu="handleSessionContextMenu($event, window)"
-          >
-            <div class="session-card-content">
-              <div class="session-card-name">
-                {{ getSessionDisplayName(window.id) }}
-              </div>
-              <div class="session-card-count">
-                {{ window.tabs.length }} tab{{ window.tabs.length !== 1 ? 's' : '' }}
-              </div>
-            </div>
-          </div>
+          />
         </div>
       </div>
       
-      <!-- Placeholder for future session groups -->
-      <div class="session-group disabled" :class="{ 'current': sessionGroupNameCurrent === 'remote' }">
+      <!-- Remote Sessions Group -->
+      <div class="session-group" :class="{ 'current': sessionGroupNameCurrent === 'remote' }">
         <div class="session-group-header">
           <div class="session-group-title">Remote Sessions</div>
-          <div class="session-group-count">Coming Soon</div>
+          <div class="session-group-counts">
+            <div v-if="searchState.isSearchActive" class="search-result-count">
+              {{ remoteSessionSearchCount }}
+            </div>
+            <div class="session-group-count">
+              {{ isFetchAllTabsFromRemoteOnInit ? `${sessionsRemoteNum} session${sessionsRemoteNum !== 1 ? 's' : ''}` : 'Search Only' }}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Server Subgroups -->
+        <div class="session-subgroups">
+          <div class="session-subgroup">
+            <div class="session-subgroup-header">
+              <div class="session-subgroup-title">Default Server</div>
+              <div class="session-subgroup-counts">
+                <div v-if="searchState.isSearchActive" class="search-result-count">
+                  {{ remoteSessionSearchCount }}
+                </div>
+                <div class="session-subgroup-count">
+                  {{ sessionsRemoteNum }} session{{ sessionsRemoteNum !== 1 ? 's' : '' }}
+                </div>
+              </div>
+            </div>
+            
+            <div class="session-cards">
+              <SessionCard
+                v-for="(sessionTabs, sessionId) in remoteSessionsList"
+                :key="sessionId"
+                :session-name="sessionTabs.name || `List ${sessionId}`"
+                :tab-count="Object.keys(sessionTabs.tabs || {}).length"
+                :session-card-id="`remote-${sessionId}`"
+                :is-current="sessionCardIdCurrent === `remote-${sessionId}`"
+                :is-current-window="false"
+                :should-display-search-result="searchState.isSearchActive"
+                :search-result-tab-num="remoteSessionSearchCounts[sessionId] || 0"
+                @click="selectSession('remote', sessionId)"
+              />
+            </div>
+          </div>
         </div>
       </div>
       
@@ -57,14 +96,43 @@
     <!-- Right Panel: Tab Content -->
     <div class="content-panel">
       <div class="content-header">
-        <!-- Reserved for future use -->
+        <!-- Search Panel -->
+        <TabsSearch ref="tabsSearchRef" />
+        
+        <!-- Display Settings Panel -->
+        <PanelDisplaySetting
+          ref="panelDisplayRef"
+          :is-loading="isLoading"
+          :boolean-items="booleanItemsConfig"
+          :range-items="rangeItemsConfig"
+          :select-items="selectItemsConfig"
+          :trigger-items="triggerItemsConfig"
+        />
       </div>
       
-      <div class="content-body">
+      <div class="content-body" :class="{ 'search-mode': searchState.isSearchActive }">
+        <!-- Search Mode Headers -->
+        <template v-if="searchState.isSearchActive">
+          <!-- Open Tabs Search Results Header -->
+          <div v-if="searchState.sessionsOpenSearchResults.length > 0" class="search-section-header">
+            <h3>Open Tabs</h3>
+            <div class="search-section-count">
+              {{ searchState.sessionsOpenSearchResults.length }} result{{ searchState.sessionsOpenSearchResults.length !== 1 ? 's' : '' }}
+            </div>
+          </div>
+        </template>
+        
         <!-- Open Tabs Content -->
-        <div v-if="sessionGroupNameCurrent === 'open'" class="tabs-content">
+        <div 
+          v-show="(searchState.isSearchActive && searchState.sessionsOpenSearchResults.length > 0) || (!searchState.isSearchActive && sessionGroupNameCurrent === 'open')" 
+          class="tabs-content"
+          :class="{ 'search-section': searchState.isSearchActive && searchState.sessionsOpenSearchResults.length > 0 }"
+        >
           <TabsOpen
             ref="tabsOpenRef"
+            :panel-display-ref="panelDisplayRef"
+            :search-mode="searchState.isSearchActive"
+            :search-results="searchState.sessionsOpenSearchResults"
             @tab-activated="$emit('tab-activated', $event)"
             @tab-closed="$emit('tab-closed', $event)"
             @show-context-menu="$emit('show-context-menu', $event)"
@@ -73,11 +141,36 @@
           />
         </div>
         
-        <!-- Placeholder for other content types -->
-        <div v-else class="placeholder-content">
-          <div class="placeholder-message">
-            This session type is not yet implemented
+        <!-- Search Mode Headers -->
+        <template v-if="searchState.isSearchActive">
+          <!-- Remote Tabs Search Results Header -->
+          <div v-if="searchState.sessionsRemoteSearchResults.length > 0" class="search-section-header">
+            <h3>Remote Tabs</h3>
+            <div class="search-section-count">
+              {{ searchState.sessionsRemoteSearchResults.length }} result{{ searchState.sessionsRemoteSearchResults.length !== 1 ? 's' : '' }}
+            </div>
           </div>
+        </template>
+        
+        <!-- Remote Tabs Content -->
+        <div 
+          v-show="(searchState.isSearchActive && searchState.sessionsRemoteSearchResults.length > 0) || (!searchState.isSearchActive && sessionGroupNameCurrent === 'remote')" 
+          class="tabs-content"
+          :class="{ 'search-section': searchState.isSearchActive && searchState.sessionsRemoteSearchResults.length > 0 }"
+        >
+          <TabsRemote
+            ref="tabsRemoteRef"
+            :panel-display-ref="panelDisplayRef"
+            :search-mode="searchState.isSearchActive"
+            :search-results="searchState.sessionsRemoteSearchResults"
+            @openSettings="$emit('openSettings')"
+          />
+        </div>
+        
+        <!-- No Results Message -->
+        <div v-if="searchState.isSearchActive && searchState.sessionsOpenSearchResults.length === 0 && searchState.sessionsRemoteSearchResults.length === 0" class="no-search-results">
+          <div class="no-results-icon">🔍</div>
+          <div class="no-results-message">No tabs found matching your search criteria</div>
         </div>
       </div>
     </div>
@@ -114,30 +207,80 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useTabsOpen } from '@/stores/TabsOpen'
+import { useTabsRemote } from '@/stores/TabsRemote'
+import { useTabsSearch } from '@/stores/TabsSearch'
 import { storeToRefs } from 'pinia'
 import TabsOpen from '@/tab-browser/TabsOpen.vue'
-import SessionRenameModal from './SessionRenameModal.vue'
+import TabsRemote from '@/sessions/TabsRemote.vue'
+import PanelDisplaySetting from '@/panel/PanelDisplaySetting.vue'
+import SessionRenameModal from '@/sessions/SessionRenameModal.vue'
+import SessionCard from '@/sessions/SessionCard.vue'
+import TabsSearch from '@/components/TabsSearch.vue'
 
-// Define emits
+// define emits
 const emit = defineEmits([
   'tab-activated', 
   'tab-closed', 
   'show-context-menu', 
   'upload-single-tab', 
-  'upload-selected-tabs'
+  'upload-selected-tabs',
+  'openSettings'
 ])
 
-// Use TabsOpen store
+// use stores
 const tabsOpenStore = useTabsOpen()
+const tabsRemoteStore = useTabsRemote()
+const tabsSearchStore = useTabsSearch()
 const { sessionsOpen, windowCurrentId, tabsOpenNumTotal, isLoading } = storeToRefs(tabsOpenStore)
+const { isFetchAllTabsFromRemoteOnInit, sessionRemoteTabNumTotal, sessionsRemoteNum, sessionsRemote } = storeToRefs(tabsRemoteStore)
+const { searchState } = storeToRefs(tabsSearchStore)
 const { setSessionNickname, getSessionNickname, getSessionDisplayName } = tabsOpenStore
 
-// Refs
+// refs
 const tabsOpenRef = ref(null)
+const panelDisplayRef = ref(null)
 
 // focused session tracking
 const sessionGroupNameCurrent = ref('open') // current session group name
 const sessionCardIdCurrent = ref(null) // current session card id
+
+// configuration for PanelDisplaySetting
+const booleanItemsConfig = ref([
+  { name: 'showIcon', label: 'Icon', value: true, title: 'Toggle icon display' },
+  { name: 'showTitle', label: 'Title', value: true, title: 'Toggle title display' },
+  { name: 'showUrl', label: 'URL', value: false, title: 'Toggle URL display' },
+  { name: 'useResponsiveGrid', label: 'AutoColNum', value: true, title: 'Auto-fit responsive grid' }
+])
+
+const rangeItemsConfig = ref([
+  { name: 'columnsPerRow', value: 2, min: 1, max: 4, step: 1, default: 2, title: 'Columns per row' },
+  { name: 'overviewIconSize', value: 20, min: 12, max: 48, step: 1, default: 20, title: 'Icon size' }
+])
+
+const selectItemsConfig = ref([
+  { 
+    name: 'displayMode', 
+    value: 'TabsBased', 
+    title: 'Display Mode',
+    options: [
+      { value: 'TabsBased', label: 'TabsBased', title: 'Show all tabs with full details' },
+      { value: 'WindowsBased', label: 'WindowsBased', title: 'Window/list overview with tab icons' }
+    ]
+  },
+  {
+    name: 'overviewIconMode',
+    value: 'all',
+    title: 'Tab Icons',
+    options: [
+      { value: 'all', label: 'All', title: 'Show all tab icons' },
+      { value: 'limited', label: 'Limited', title: 'Show first/last 10 icons with count' }
+    ]
+  }
+])
+
+const triggerItemsConfig = ref([
+  { name: 'refresh', icon: '↻', title: 'Refresh', disabled: false }
+])
 
 // Generate unique session card IDs
 const sessionCardIds = ref(new Map()) // windowId -> sessionCardId
@@ -167,17 +310,63 @@ const renameModal = ref({
 
 // Computed
 const openWindows = computed(() => sessionsOpen.value || [])
+const remoteSessionsList = computed(() => sessionsRemote.value || {})
+
+// Search result counts
+const openSessionSearchCount = computed(() => {
+  return searchState.value.isSearchActive ? searchState.value.sessionsOpenSearchResults.length : 0
+})
+
+const remoteSessionSearchCount = computed(() => {
+  return searchState.value.isSearchActive ? searchState.value.sessionsRemoteSearchResults.length : 0
+})
+
+const totalSearchCount = computed(() => {
+  return openSessionSearchCount.value + remoteSessionSearchCount.value
+})
+
+// Search results by remote session
+const remoteSessionSearchCounts = computed(() => {
+  if (!searchState.value.isSearchActive) return {}
+  
+  const counts = {}
+  searchState.value.sessionsRemoteSearchResults.forEach(tab => {
+    const sessionId = tab.sessionId || tab.session_id
+    if (sessionId) {
+      counts[sessionId] = (counts[sessionId] || 0) + 1
+    }
+  })
+  return counts
+})
+
+// Search results by open window
+const openWindowSearchCounts = computed(() => {
+  if (!searchState.value.isSearchActive) return {}
+  
+  const counts = {}
+  searchState.value.sessionsOpenSearchResults.forEach(tab => {
+    const windowId = tab.windowId
+    if (windowId) {
+      counts[windowId] = (counts[windowId] || 0) + 1
+    }
+  })
+  return counts
+})
 
 // Methods
 const selectSession = async (type, id) => {
   // Update session group and card tracking
   sessionGroupNameCurrent.value = type
-  sessionCardIdCurrent.value = getSessionCardId(id)
   
-  if (type === 'open' && tabsOpenRef.value) {
-    // Wait for next tick to ensure DOM is updated
-    await nextTick()
-    tabsOpenRef.value.scrollToWindow(id)
+  if (type === 'open') {
+    sessionCardIdCurrent.value = getSessionCardId(id)
+    if (tabsOpenRef.value) {
+      // Wait for next tick to ensure DOM is updated
+      await nextTick()
+      tabsOpenRef.value.scrollToWindow(id)
+    }
+  } else if (type === 'remote') {
+    sessionCardIdCurrent.value = `remote-${id}` // Use remote- prefixed id for remote sessions
   }
 }
 
@@ -203,7 +392,7 @@ const handleRenameSession = () => {
   const window = contextMenu.value.window
   if (!window) return
   
-  const defaultName = window.id === windowCurrentId.value ? 'Current Window' : `Window ${window.id}`
+  const defaultName = `Window ${window.id}`
   
   renameModal.value = {
     isVisible: true,
@@ -223,6 +412,8 @@ const confirmRename = (data) => {
   setSessionNickname(data.windowId, data.nickname)
   closeRenameModal()
 }
+
+
 
 // Click outside to close context menu
 const handleClickOutside = (event) => {
@@ -244,12 +435,19 @@ watch(openWindows, (newWindows) => {
   }
 }, { immediate: true })
 
-// Watch for visible window changes from scroll monitoring  
+// watch for visible window changes from scroll monitoring  
 watch(() => tabsOpenRef.value?.windowIdVisible, (newWindowId) => {
   if (newWindowId && sessionGroupNameCurrent.value === 'open') {
     // Update current session card to match visible window
     sessionCardIdCurrent.value = getSessionCardId(newWindowId)
     console.log('TabsMainWindow: Updated current session card based on scroll, windowId:', newWindowId)
+  }
+})
+
+// watch refresh count to trigger refresh when button is clicked
+watch(() => panelDisplayRef.value?.triggerItems?.find?.(item => item.name === 'refresh')?.count, (newCount, oldCount) => {
+  if (newCount > oldCount) {
+    tabsOpenStore.refreshData()
   }
 })
 
@@ -308,12 +506,28 @@ defineExpose({
 }
 
 .session-group-header {
-  padding: 12px 16px;
-  background-color: #f8f9fa;
+  padding: 4px 8px;
   border-bottom: 1px solid #e1e3e1;
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.session-group-counts,
+.session-subgroup-counts {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.search-result-count {
+  font-size: 10px;
+  color: #0d652d;
+  font-weight: 600;
+  background-color: #e6f4ea;
+  padding: 2px 6px;
+  border-radius: 8px;
+  border: 1px solid #c4e7d1;
 }
 
 .session-group-title {
@@ -331,47 +545,52 @@ defineExpose({
 }
 
 .session-cards {
-  padding: 8px;
-}
-
-.session-card {
-  padding: 12px;
-  margin-bottom: 8px;
-  border: 1px solid #e1e3e1;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  background-color: white;
-}
-
-.session-card:hover {
-  border-color: #1a73e8;
-  box-shadow: 0 1px 3px rgba(26, 115, 232, 0.2);
-}
-
-.session-card.current {
-  border-color: #1a73e8;
-  background-color: #e8f0fe;
-  box-shadow: 0 2px 6px rgba(26, 115, 232, 0.3);
-}
-
-.session-card-content {
+  padding: 6px;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 4px;
 }
 
-.session-card-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #202124;
-  line-height: 1.2;
+.session-subgroups {
+  padding: 0;
 }
 
-.session-card-count {
-  font-size: 12px;
-  color: var(--text-secondary);
+.session-subgroup {
+  border-top: 1px solid #f1f3f4;
+  margin-top: 4px;
 }
+
+.session-subgroup:first-child {
+  border-top: none;
+  margin-top: 0;
+}
+
+.session-subgroup-header {
+  padding: 8px 16px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e1e3e1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.session-subgroup-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #5f6368;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.session-subgroup-count {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background-color: #e8f0fe;
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+
+
 
 /* Right Panel */
 .content-panel {
@@ -383,13 +602,17 @@ defineExpose({
 }
 
 .content-header {
-  padding: 16px;
+  padding: 8px 12px;
   border-bottom: 1px solid #e1e3e1;
   background-color: white;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   flex-shrink: 0;
+}
+
+.content-header:empty {
+  display: none;
 }
 
 .content-title {
@@ -410,23 +633,85 @@ defineExpose({
   flex-direction: column;
 }
 
+/* Search mode: Enable scrolling in content-body */
+.content-body.search-mode {
+  overflow-y: auto;
+  padding: 8px;
+  gap: 16px;
+}
+
+/* Search section styling */
+.search-section {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.search-section:last-child {
+  margin-bottom: 0;
+}
+
+.search-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border: 1px solid #dadce0;
+  border-radius: 8px 8px 0 0;
+  margin-bottom: 8px;
+}
+
+.search-section-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #202124;
+}
+
+.search-section-count {
+  font-size: 12px;
+  color: #5f6368;
+  background: #e8f0fe;
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+
+.search-section-content {
+  /* Remove any container constraints to allow full content display */
+  height: auto;
+  overflow: visible;
+}
+
+/* No search results styling */
+.no-search-results {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+  color: #5f6368;
+}
+
+.no-results-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.no-results-message {
+  font-size: 16px;
+  font-weight: 500;
+}
+
 .tabs-content {
   flex: 1;
   overflow: hidden;
 }
 
-.placeholder-content {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.placeholder-message {
-  font-size: 16px;
-  color: var(--text-secondary);
-  text-align: center;
-}
 
 /* Override TabsOpen styles when embedded */
 .tabs-content :deep(.tabs-open-container) {
@@ -439,6 +724,24 @@ defineExpose({
 
 .tabs-content :deep(.windows-container) {
   height: 100%;
+  padding: 8px;
+}
+
+/* Search mode specific overrides */
+.content-body.search-mode .tabs-content :deep(.tabs-open-container),
+.content-body.search-mode .tabs-content :deep(.tabs-remote-container) {
+  height: auto !important; /* Allow auto-sizing in search mode */
+}
+
+.content-body.search-mode .tabs-content :deep(.tabs-open-header),
+.content-body.search-mode .tabs-content :deep(.tabs-remote-header) {
+  display: none; /* Hide headers in search mode */
+}
+
+.content-body.search-mode .tabs-content :deep(.windows-container),
+.content-body.search-mode .tabs-content :deep(.lists-container) {
+  height: auto !important; /* Allow auto-sizing in search mode */
+  overflow: visible !important; /* Remove scroll constraints */
   padding: 8px;
 }
 

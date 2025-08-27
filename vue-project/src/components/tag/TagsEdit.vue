@@ -160,6 +160,7 @@ const handleOpenTagsManagerFromTagsSelect = (data) => {
   // emit('open-tags-manager', { tag: tag, initialTab: 'rename' })
 }
 
+import { setTagsForUrlCache } from '@/stores/TabsRemoteRequest.js'
 const handleSave = async () => {
   if (!tagsSelectRef.value) {
     setStatus('Tags component not available', 'error')
@@ -177,7 +178,7 @@ const handleSave = async () => {
     console.log('TagsEdit.vue: Current tags:', currentTags)
 
     // Call API to set tags for the remote tab
-    const result = await networkRequest.setTagsForUrlCache({
+    const result = await setTagsForUrlCache({
       id: tab.value.id,
       tags_id: currentTags.tags_id,
       tags_name: currentTags.tags_name
@@ -206,14 +207,13 @@ const handleSave = async () => {
   }
 }
 
-import { useTabsRemote } from '../../stores/TabsRemote.js'
+import { useTabsRemote } from '@/stores/TabsRemote.js'
 const tabsRemoteStore = useTabsRemote()
 
 const handleChangeTypeToUrl = async () => {
   try {
     isLoading.value = true
     setStatus('Changing tab type to URL...', 'info')
-
     console.log('TagsEdit.vue: Changing tab type for tab:', tab.value.id)
 
     // Call API to change tab type from url_cache to url
@@ -224,7 +224,7 @@ const handleChangeTypeToUrl = async () => {
       console.log(`TagsEdit.vue: Successfully changed tab ${tab.value.id} type to url`)
       
       // Remove the tab locally since it's no longer url_cache type
-      tabsRemoteStore.removeTabRemoteInLocal(tab.value, false, true)
+      tabsRemoteStore.removeTabRemoteFromLocalCache(tab.value, false, true)
       // Close modal after a short delay since the tab no longer exists as url_cache
       setTimeout(() => {
         emit('close')

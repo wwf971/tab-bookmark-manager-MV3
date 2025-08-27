@@ -106,6 +106,7 @@ onMounted(() => {
   background-color: #fafbfc;
   display: flex;
   flex-direction: column;
+  margin-bottom: 5px;
   overflow: hidden;
 }
 

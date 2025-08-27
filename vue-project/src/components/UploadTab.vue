@@ -696,7 +696,7 @@ const requestUploadSingleTab = async (destination='url') => {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
         let task = 'create_url'
         if(destination === 'url_cache'){
-            task = 'create_url_cache'
+            task = 'create_tab_remote'
         }
         // console.log('UploadTab.vue: requestUploadSingleTab(): tab:', tab)
         
@@ -825,186 +825,190 @@ const getTabsToUpload = async () => {
   return tabsToUpload
 }
 
+import {
+  uploadTabToRemote,
+  uploadTabsToRemote
+} from '@/stores/TabsRemoteRequest'
 
 const requestUploadTabs = async (upload_as_type='url', upload_manner='one_by_one') => {
-    // check authentication first
-    const canProceed = await checkAuthenticationAndProceed()
-    if (!canProceed){
-      status.value = 'Authentication failed. Please login to continue.'
-      statusClass.value = 'error'
-      return
-    }
-  
-    // handle different upload modes
-    if (operationType.value === 'update-server-tab') {
-      status.value = 'This button is for upload, not update.'
-      statusClass.value = 'error'
-      return
-    }
+  // check authentication first
+  const canProceed = await checkAuthenticationAndProceed()
+  if (!canProceed){
+    status.value = 'Authentication failed. Please login to continue.'
+    statusClass.value = 'error'
+    return
+  }
 
-    status.value = 'Uploading tabs...'
-    statusClass.value = ''
-    const tabsToUpload = await getTabsToUpload()
+  // handle different upload modes
+  if (operationType.value === 'update-server-tab') {
+    status.value = 'This button is for upload, not update.'
+    statusClass.value = 'error'
+    return
+  }
 
-    try {
-        // Get current tags from TagsSelect component
-        const tagsSelected = tagsSelectRef.value?.getCurrentTags() || { tags_id: [], tags_name: [] }
-        console.warn('_requestUploadTabs(): tagsSelected:', tagsSelected)
+  status.value = 'Uploading tabs...'
+  statusClass.value = ''
+  const tabsToUpload = await getTabsToUpload()
 
-        // upload tabs one by one
-        if(upload_manner === 'one_by_one'){
-            let successCount = 0
-            let failCount = 0
-            const tabsOpenNumTotal = tabsToUpload.length
-            const successfulTabs = []
-            const failedTabs = []
-            
-            for(let i = 0; i < tabsToUpload.length; i++){
-                const tab = tabsToUpload[i]
-                const currentTabNum = i + 1
-                
-                // Update status to show current progress
-                // status.value = `Uploading tab ${currentTabNum}/${tabsOpenNumTotal}: ${tab.title.substring(0, 50)}...`
-                // statusClass.value = ''
+  try {
+      // Get current tags from TagsSelect component
+      const tagsSelected = tagsSelectRef.value?.getCurrentTags() || { tags_id: [], tags_name: [] }
+      console.warn('_requestUploadTabs(): tagsSelected:', tagsSelected)
 
-                try {
-                    let task = 'create_url'
-                    if(upload_as_type === 'url_cache'){
-                      task = 'create_url_cache'
-                    }
+      // upload tabs one by one
+      if(upload_manner === 'one_by_one'){
+          let successCount = 0
+          let failCount = 0
+          const tabsOpenNumTotal = tabsToUpload.length
+          const successfulTabs = []
+          const failedTabs = []
+          
+          for(let i = 0; i < tabsToUpload.length; i++){
+              const tab = tabsToUpload[i]
+              const currentTabNum = i + 1
+              
+              // Update status to show current progress
+              // status.value = `Uploading tab ${currentTabNum}/${tabsOpenNumTotal}: ${tab.title.substring(0, 50)}...`
+              // statusClass.value = ''
 
-                    // Get current tags from TagsSelect component
-                    const tagsSelected = tagsSelectRef.value?.getCurrentTags() || { tags_id: [], tags_name: [] }
-                    
-                    const result = await networkRequest.uploadTabToRemote(tab, {
-                        task,
-                        tags_id: tagsSelected.tags_id,
-                        tags_name: tagsSelected.tags_name,
-                        comment: comment.value
-                    })
+              try {
+                  let task = 'create_url'
+                  if(upload_as_type === 'url_cache'){
+                    task = 'create_tab_remote'
+                  }
 
-                    if (result.is_success) {
-                        successCount++
-                        successfulTabs.push(tab)
-                        
-                        // Update intermediate status
-                        status.value = `SUCCESS: ${successCount}/${tabsOpenNumTotal} FAIL: ${failCount}/${tabsOpenNumTotal}`
-                        statusClass.value = successCount > 0 ? 'success' : ''
-                    } else {
-                        failCount++
-                        failedTabs.push({ tab, error: result.message })
-                        
-                        // Update intermediate status
-                        status.value = `Progress: ${successCount}/${tabsOpenNumTotal} uploaded, ${failCount}/${tabsOpenNumTotal} failed`
-                        statusClass.value = failCount > 0 ? 'error' : ''
-                    }
-                } catch (error) {
-                    failCount++
-                    failedTabs.push({ tab, error: error.message })
-                    
-                    // Update intermediate status
-                    status.value = `Progress: ${successCount}/${tabsOpenNumTotal} uploaded, ${failCount}/${tabsOpenNumTotal} failed`
-                    statusClass.value = 'error'
-                }
-                
-                // Small delay between uploads to avoid overwhelming the server
-                if (i < tabsToUpload.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 200))
-                }
-            }
-            
-            // Final status update
-            if (failCount === 0) {
-                status.value = `SUCCESS: ${successCount}/${tabsOpenNumTotal} tabs uploaded successfully!`
-                statusClass.value = 'success'
-                
-                if (closeTabAfterUpload.value) {
-                    setTimeout(() => {
-                        successfulTabs.forEach(tab => chrome.tabs.remove(tab.id))
-                    }, 1000)
-                }
-                
-                if (closePopupAfterUpload.value) {
-                    setTimeout(() => {
-                        window.close()
-                    }, 1000)
-                }
-            } else if (successCount === 0) {
-                status.value = `FAILED: 0/${tabsOpenNumTotal} tabs uploaded. All uploads failed.`
-                statusClass.value = 'error'
-            } else {
-                status.value = `PARTIAL SUCCESS: ${successCount}/${tabsOpenNumTotal} tabs uploaded, ${failCount}/${tabsOpenNumTotal} failed.`
-                statusClass.value = 'error'
-                
-                // Close only successful tabs
-                if (closeTabAfterUpload.value) {
-                    setTimeout(() => {
-                        successfulTabs.forEach(tab => chrome.tabs.remove(tab.id))
-                    }, 1000)
-                }
-                
-                // Only close popup if there were some successful uploads
-                if (successCount > 0 && closePopupAfterUpload.value) {
-                    setTimeout(() => {
-                        window.close()
-                    }, 2000) // Give user more time to read the mixed results
-                }
-            }
-            
-            return;
-        }
-        // upload all tabs at once
-        const results = await networkRequest.uploadTabsToRemote(tabsToUpload, {
-            tags_id: tagsSelected.tags_id,
-            tags_name: tagsSelected.tags_name,
-            comment: comment.value
-        })
+                  // Get current tags from TagsSelect component
+                  const tagsSelected = tagsSelectRef.value?.getCurrentTags() || { tags_id: [], tags_name: [] }
+                  
+                  const result = await uploadTabToRemote(tab, {
+                      task,
+                      tags_id: tagsSelected.tags_id,
+                      tags_name: tagsSelected.tags_name,
+                      comment: comment.value
+                  })
 
-        const successCount = results.success.length
-        const failCount = results.failed.length
+                  if (result.is_success) {
+                      successCount++
+                      successfulTabs.push(tab)
+                      
+                      // Update intermediate status
+                      status.value = `SUCCESS: ${successCount}/${tabsOpenNumTotal} FAIL: ${failCount}/${tabsOpenNumTotal}`
+                      statusClass.value = successCount > 0 ? 'success' : ''
+                  } else {
+                      failCount++
+                      failedTabs.push({ tab, error: result.message })
+                      
+                      // Update intermediate status
+                      status.value = `Progress: ${successCount}/${tabsOpenNumTotal} uploaded, ${failCount}/${tabsOpenNumTotal} failed`
+                      statusClass.value = failCount > 0 ? 'error' : ''
+                  }
+              } catch (error) {
+                  failCount++
+                  failedTabs.push({ tab, error: error.message })
+                  
+                  // Update intermediate status
+                  status.value = `Progress: ${successCount}/${tabsOpenNumTotal} uploaded, ${failCount}/${tabsOpenNumTotal} failed`
+                  statusClass.value = 'error'
+              }
+              
+              // Small delay between uploads to avoid overwhelming the server
+              if (i < tabsToUpload.length - 1) {
+                  await new Promise(resolve => setTimeout(resolve, 200))
+              }
+          }
+          
+          // Final status update
+          if (failCount === 0) {
+              status.value = `SUCCESS: ${successCount}/${tabsOpenNumTotal} tabs uploaded successfully!`
+              statusClass.value = 'success'
+              
+              if (closeTabAfterUpload.value) {
+                  setTimeout(() => {
+                      successfulTabs.forEach(tab => chrome.tabs.remove(tab.id))
+                  }, 1000)
+              }
+              
+              if (closePopupAfterUpload.value) {
+                  setTimeout(() => {
+                      window.close()
+                  }, 1000)
+              }
+          } else if (successCount === 0) {
+              status.value = `FAILED: 0/${tabsOpenNumTotal} tabs uploaded. All uploads failed.`
+              statusClass.value = 'error'
+          } else {
+              status.value = `PARTIAL SUCCESS: ${successCount}/${tabsOpenNumTotal} tabs uploaded, ${failCount}/${tabsOpenNumTotal} failed.`
+              statusClass.value = 'error'
+              
+              // Close only successful tabs
+              if (closeTabAfterUpload.value) {
+                  setTimeout(() => {
+                      successfulTabs.forEach(tab => chrome.tabs.remove(tab.id))
+                  }, 1000)
+              }
+              
+              // Only close popup if there were some successful uploads
+              if (successCount > 0 && closePopupAfterUpload.value) {
+                  setTimeout(() => {
+                      window.close()
+                  }, 2000) // Give user more time to read the mixed results
+              }
+          }
+          
+          return;
+      }
+      // upload all tabs at once
+      const results = await uploadTabsToRemote(tabsToUpload, {
+          tags_id: tagsSelected.tags_id,
+          tags_name: tagsSelected.tags_name,
+          comment: comment.value
+      })
 
-        if (failCount === 0) {
-            status.value = `SUCCESS. ${successCount}/${tabsToUpload.length} uploaded.`
-            statusClass.value = 'success'
-            
-            if (closeTabAfterUpload.value) {
-                setTimeout(() => {
-                    results.success.forEach(tab => chrome.tabs.remove(tab.id))
-                }, 1000)
-            }
-            
-            if (closePopupAfterUpload.value) {
+      const successCount = results.success.length
+      const failCount = results.failed.length
+
+      if (failCount === 0) {
+          status.value = `SUCCESS. ${successCount}/${tabsToUpload.length} uploaded.`
+          statusClass.value = 'success'
+          
+          if (closeTabAfterUpload.value) {
               setTimeout(() => {
-                window.close()
+                  results.success.forEach(tab => chrome.tabs.remove(tab.id))
               }, 1000)
-            }
-        } else {
-            if(successCount > 0){
-                status.value = `HALF FAILED. ${successCount}/${tabsToUpload.length} uploaded.`
-            } else {
-                status.value = `FAILED. 0/${tabsToUpload.length} tabs uploaded.`
-            }
-            statusClass.value = 'error'
+          }
+          
+          if (closePopupAfterUpload.value) {
+            setTimeout(() => {
+              window.close()
+            }, 1000)
+          }
+      } else {
+          if(successCount > 0){
+              status.value = `HALF FAILED. ${successCount}/${tabsToUpload.length} uploaded.`
+          } else {
+              status.value = `FAILED. 0/${tabsToUpload.length} tabs uploaded.`
+          }
+          statusClass.value = 'error'
 
-            // close only successful tabs
-            if (closeTabAfterUpload.value) {
-                setTimeout(() => {
-                    results.success.forEach(tab => chrome.tabs.remove(tab.id))
-                }, 1000)
-            }
+          // close only successful tabs
+          if (closeTabAfterUpload.value) {
+              setTimeout(() => {
+                  results.success.forEach(tab => chrome.tabs.remove(tab.id))
+              }, 1000)
+          }
 
-            // Only close popup if there were some successful uploads
-            if (successCount > 0 && closePopupAfterUpload.value) {
-                setTimeout(() => {
-                    window.close()
-                }, 2000) // Give user more time to read the mixed results
-            }
-        }
-    } catch (error) {
-        console.error('Error in batch upload:', error)
-        status.value = `Error in batch upload: ${error.message || error}`
-        statusClass.value = 'error'
-    }
+          // Only close popup if there were some successful uploads
+          if (successCount > 0 && closePopupAfterUpload.value) {
+              setTimeout(() => {
+                  window.close()
+              }, 2000) // Give user more time to read the mixed results
+          }
+      }
+  } catch (error) {
+      console.error('Error in batch upload:', error)
+      status.value = `Error in batch upload: ${error.message || error}`
+      statusClass.value = 'error'
+  }
 }
 
 const checkSession = async () => {

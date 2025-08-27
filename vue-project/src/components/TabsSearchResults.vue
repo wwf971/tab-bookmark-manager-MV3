@@ -71,8 +71,8 @@ import { useTagsEdit } from '../stores/TagsEdit'
 import { useTags } from '../stores/Tags'
 import { useTabsSearch } from '../stores/TabsSearch'
 import { calculateContextMenuPos } from '../utils/contextMenuPosition'
-import TabCard from './TabCard.vue'
-import TabsContextMenu from './TabsContextMenu.vue'
+import TabCard from '@/tabs/TabCard.vue'
+import TabsContextMenu from '@/tabs/TabsContextMenu.vue'
 
 // props
 const props = defineProps({
@@ -262,7 +262,7 @@ const requestTabCloseInSearchResults = async (tab) => {
         //   props.tabs.splice(index, 1)
         // }
         // Update local state
-        tabsRemoteStore.removeTabRemoteInLocal(
+        tabsRemoteStore.removeTabRemoteFromLocalCache(
           tab,
           true, // refreshTabsRemoteRecent
           true // removeFromSearchResults
@@ -355,7 +355,7 @@ const handleContextMenuAction = async (event) => {
           if (result.is_success) {
             console.log(`TabsSearchResults.vue: Successfully changed tab ${tab.id} type to url`)
             // Remove the tab locally since it's no longer url_cache type
-            tabsRemoteStore.removeTabRemoteInLocal(tab, false, true)
+            tabsRemoteStore.removeTabRemoteFromLocalCache(tab, false, true)
           } else {
             console.error('TabsSearchResults.vue: Failed to change tab type:', result.message)
           }

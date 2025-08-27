@@ -1,3 +1,8 @@
+<!--
+  triggerSearch -> startSearch
+
+-->
+
 <template>
   <div class="tabs-search-container">
     <!-- Search Input -->
@@ -21,7 +26,6 @@
     </div>
 
     <!-- Tag Search Row -->
-
     <TagsInput
       :tags-init="searchState.tagsSelected"
       :allow-user-edit="true"
@@ -38,19 +42,19 @@
 
     <!-- Search Stats -->
     <div v-if="searchState.isSearchActive || searchState.hasSearchResults" class="search-stats">
-      <div v-if="searchState.isSearchActive" class="searching-indicator">
+      <div v-if="searchState.isSearching" class="is-searching-indicator">
         Searching...
       </div>
       <div v-else-if="searchState.hasSearchResults" class="search-results-count">
         Found {{ searchState.searchResultsNumTotal }} tab{{ searchState.searchResultsNumTotal !== 1 ? 's' : '' }}
-        <span v-if="searchState.tabsOpenSearchResults.length > 0">
-          ({{ searchState.tabsOpenSearchResults.length }}
-            open{{ searchState.tabsRemoteSearchResults.length > 0 ? 
-            ', ' + searchState.tabsRemoteSearchResults.length + ' remote' : ''
+        <span v-if="searchState.sessionsOpenSearchResults.length > 0">
+          ({{ searchState.sessionsOpenSearchResults.length }}
+            open{{ searchState.sessionsRemoteSearchResults.length > 0 ? 
+            ', ' + searchState.sessionsRemoteSearchResults.length + ' remote' : ''
           }})
         </span>
-        <span v-else-if="searchState.tabsRemoteSearchResults.length > 0">
-          ({{ searchState.tabsRemoteSearchResults.length }} remote)
+        <span v-else-if="searchState.sessionsRemoteSearchResults.length > 0">
+          ({{ searchState.sessionsRemoteSearchResults.length }} remote)
         </span>
         <span v-if="searchState.tagsSelected.length > 0" class="tag-filter-indicator">
           • Filtered by {{ searchState.tagsSelected.length }} tag{{ searchState.tagsSelected.length !== 1 ? 's' : '' }}
@@ -95,7 +99,7 @@ const searchState = tabsSearchStore.searchState
 
 // Local search state
 // Search task management
-let currentSearchController = null
+let searchControllerCurrent = null
 let searchDebounceTimeout = null
 
 
@@ -145,27 +149,24 @@ const onTagSearchReorder = (data, callback) => {
   if (callback) callback(true)
 }
 
-// Search functionality - now using store methods
-
+// search functionality - now using store methods
 const startSearch = async () => {
   console.log('TabsSearch: Starting search - text:', searchState.searchQuery, 'tags:', searchState.tagsSelected)
-  // Cancel current search if exists
-  if (currentSearchController) {
-    currentSearchController.abort()
+  // cancel current search if exists
+  if (searchControllerCurrent) {
+    searchControllerCurrent.abort()
   }
-  
-  // Create new search controller
-  currentSearchController = new AbortController()
+  // create new search controller
+  searchControllerCurrent = new AbortController()
   
   try {
-    await tabsSearchStore.startSearch(currentSearchController)
+    await tabsSearchStore.startSearch(searchControllerCurrent)
   } finally {
-    currentSearchController = null
+    searchControllerCurrent = null
   }
 }
 
 const onSearchInput = () => { triggerSearch() }
-
 const triggerSearch = () => {
   // Clear debounce timeout
   if (searchDebounceTimeout) {
@@ -200,9 +201,9 @@ const clearSearch = () => {
 
 const clearSearchResults = () => {
   // Cancel current search
-  if (currentSearchController) {
-    currentSearchController.abort()
-    currentSearchController = null
+  if (searchControllerCurrent) {
+    searchControllerCurrent.abort()
+    searchControllerCurrent = null
   }
   
   // Clear debounce timeout
@@ -212,8 +213,8 @@ const clearSearchResults = () => {
   }
   
   // Clear results
-  searchState.tabsOpenSearchResults = []
-  searchState.tabsRemoteSearchResults = []
+  searchState.sessionsOpenSearchResults = []
+  searchState.sessionsRemoteSearchResults = []
   
   // Clear search store state
   tabsSearchStore.clearSearchState()
@@ -221,9 +222,9 @@ const clearSearchResults = () => {
 
 const clearSearchResultsOnly = () => {
   // Cancel current search
-  if (currentSearchController) {
-    currentSearchController.abort()
-    currentSearchController = null
+  if (searchControllerCurrent) {
+    searchControllerCurrent.abort()
+    searchControllerCurrent = null
   }
   
   // Clear debounce timeout
@@ -233,15 +234,14 @@ const clearSearchResultsOnly = () => {
   }
   
   // Clear results only, keep query and tags
-  searchState.tabsOpenSearchResults = []
-  searchState.tabsRemoteSearchResults = []
+  searchState.sessionsOpenSearchResults = []
+  searchState.sessionsRemoteSearchResults = []
+  searchState.isSearching = false
 }
+
 
 // Watch for tag selection changes
 watch(() => searchState.tagsSelected, (newTags, oldTags) => {
-  // console.log('TabsSearch: Tag watcher fired - newTags length:', newTags?.length, 'oldTags length:', oldTags?.length)
-  // console.log('TabsSearch: New tags:', newTags)
-  // console.log('TabsSearch: Old tags:', oldTags)
   triggerSearch()
 }, { deep: true })
 
@@ -269,10 +269,10 @@ defineExpose({
 
 .search-input {
   width: 100%;
-  padding: 8px 12px;
+  padding: 4px 8px;
   border: 1px solid #dadce0;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 1.0rem;
   outline: none;
   transition: border-color 0.2s ease;
 }
@@ -378,7 +378,7 @@ defineExpose({
   color: #5f6368;
 }
 
-.searching-indicator {
+.is-searching-indicator {
   font-style: italic;
 }
 

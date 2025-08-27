@@ -139,8 +139,9 @@ const handleIconError = (event) => {
 
 .tab-remove-button {
   position: absolute;
-  top: 4px;
+  top: 50%;
   right: 4px;
+  transform: translateY(-50%);
   width: 20px;
   height: 20px;
   border-radius: 50%;

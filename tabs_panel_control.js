@@ -6,17 +6,17 @@ let urlUpload = "http://192.168.0.33:10003/url_pool/";
 // 0: Free movement, 1: Always first, 2: Always last
 let currentTabMode = 0;
 
-// Reference to the mode button
+// reference to the mode button
 const currentTabModeBtn = document.getElementById('current-tab-mode-btn');
 
-// Reference to the upload URL modal
+// reference to the upload URL modal
 const RemoteSettings = document.getElementById('upload-url-modal');
 const urlUploadInput = document.getElementById('upload-url-input');
 const saveUploadUrlBtn = document.getElementById('save-upload-url');
 const cancelUploadUrlBtn = document.getElementById('cancel-upload-url');
 const urlUploadBtn = document.getElementById('upload-url-btn');
 
-// Reference to the bulk upload modal
+// reference to the bulk upload modal
 const bulkUploadModal = document.getElementById('bulk-upload-modal');
 const bulkUploadTextarea = document.getElementById('bulk-upload-textarea');
 const processBulkUploadBtn = document.getElementById('process-bulk-upload');
@@ -24,7 +24,7 @@ const cancelBulkUploadBtn = document.getElementById('cancel-bulk-upload');
 const bulkUploadBtn = document.getElementById('bulk-upload-btn');
 const bulkStatusElement = document.getElementById('bulk-status');
 
-// Mode button click handler
+// mode button click handler
 currentTabModeBtn.addEventListener('click', () => {
     // Cycle through modes
     currentTabMode = (currentTabMode + 1) % 3;

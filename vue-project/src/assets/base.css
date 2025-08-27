@@ -131,7 +131,19 @@ body {
   opacity: 1;
 }
 
-
+.tab-count {
+  font-family: sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #9aa0a6;
+  background-color: white;
+  padding: 0 4px;
+  letter-spacing: 0.5px;
+  text-align: center;
+  display: inline-block;
+  z-index: 2;
+  position: relative;
+}
 
 .tab-virtual-icon {
   width: 14px;
@@ -285,9 +297,52 @@ body {
   cursor: not-allowed;
 }
 
+
 .tag-item-button-remove:hover:not(:disabled) {
   background-color: rgba(95, 99, 104, 0.5);
   opacity: 1;
+}
+
+/* Tab state color variables */
+:root {
+  --tab-active-color: #1a73e8;
+  --tab-browser-selected-color: #fd8001;
+  --tab-ui-selected-color: #34a853;
+  --tab-recent-color: #ba68c8;
+}
+
+/* Color indicators */
+.color-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.color-active {
+  background-color: var(--tab-active-color);
+  border: 1px solid var(--tab-active-color);
+}
+
+.color-last-active {
+  background-color: transparent;
+  border: 2px dashed var(--tab-active-color);
+  border-radius: 3px;
+}
+
+.color-browser-selected {
+  background-color: var(--tab-browser-selected-color);
+  border: 1px solid var(--tab-browser-selected-color);
+}
+
+.color-ui-selected {
+  background-color: var(--tab-ui-selected-color);
+  border: 1px solid var(--tab-ui-selected-color);
+}
+
+.color-recent {
+  background-color: var(--tab-recent-color);
+  border: 1px solid var(--tab-recent-color);
 }
 
 .tag-item.tag-selected .tag-id-corner {
@@ -296,31 +351,48 @@ body {
 }
 
 .tab-card.browser-active-tab {
-  border: 2px solid #1a73e8 !important;        /* Blue border for browser's active tab */
+  border: 2px solid var(--tab-active-color) !important;        /* Blue border for browser's active tab */
   background-color: #e8f0fe !important;
 }
 
 .tab-card.browser-last-active-tab {
-  border: 2px dashed #1a73e8 !important;       /* Dashed blue border for browser's last active tab */
+  border: 2px dashed var(--tab-active-color) !important;       /* Dashed blue border for browser's last active tab */
   background-color: #e8f0fe !important;
 }
 
 .tab-card.browser-selected-tab {
-  border: 2px solid #fd8001;
-  border-top: 2px solid #fd8001 !important;    /* Orange top border for browser-selected tabs (highlighted) */
+  border: 2px solid var(--tab-browser-selected-color);
+  border-top: 2px solid var(--tab-browser-selected-color) !important;    /* Orange top border for browser-selected tabs (highlighted) */
 }
 
 /* Special styling for different tab states */
 .tab-card.ui-selected-tab{
-  border: 2px solid #34a853;  /* Green border for UI-selected tabs */
-  border-right: 2px solid #34a853 !important;
-  border-bottom: 2px solid #34a853 !important; /* Green bottom border for UI-selected tabs */
+  border: 2px solid var(--tab-ui-selected-color);  /* Green border for UI-selected tabs */
+  /* border-right: 2px solid var(--tab-ui-selected-color) !important; */
+  border-bottom: 2px solid var(--tab-ui-selected-color) !important; /* Green bottom border for UI-selected tabs */
 }
 
 .tab-item-virtual.ui-selected-tab {
   background-color: #e8f5e8;
-  border: 3px solid #34a853;        /* Green border for UI-selected tabs */
-  border-bottom: 3px solid #34a853; /* Thicker bottom border for UI-selected */
+  border: 3px solid var(--tab-ui-selected-color);        /* Green border for UI-selected tabs */
+  border-bottom: 3px solid var(--tab-ui-selected-color); /* Thicker bottom border for UI-selected */
+}
+
+.tab-card.recent-tab {
+  border: 2px solid var(--tab-recent-color);
+  border-left: 2px solid var(--tab-recent-color) !important;  /* Purple left border for recent tabs */
+}
+
+.current-window-tag {
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+  background-color: #1a73e8;
+  padding: 2px 4px;
+  border-radius: 2px;
+  margin-left: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .modal-header {

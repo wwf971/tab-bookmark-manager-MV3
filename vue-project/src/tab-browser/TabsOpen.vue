@@ -5,21 +5,19 @@
       <div class="stats">
         <span v-if="isLoading">Loading...</span>
         <span v-else>
-          {{ (sessionsOpen || []).length }} window{{ (sessionsOpen || []).length !== 1 ? 's' : '' }},
-          {{ tabsOpenNumTotal }} tab{{ tabsOpenNumTotal !== 1 ? 's' : '' }}
+          {{ windowsFiltered.length }} window{{ windowsFiltered.length !== 1 ? 's' : '' }},
+          {{ windowsFiltered.reduce((sum, w) => sum + w.tabs.length, 0) }} tab{{ windowsFiltered.reduce((sum, w) => sum + w.tabs.length, 0) !== 1 ? 's' : '' }}
+          <span v-if="isSearchMode" class="search-indicator">(search)</span>
+          <span v-else-if="isFilterMode && filterList.length > 0" class="filter-indicator">(filtered)</span>
         </span>
       </div>
+      
+      <!-- Filter component -->
+      <TabsOpenFilter
+        v-model="filterList"
+        @update:modelValue="handleFiltersChange"
+      />
     </div>
-
-    <!-- Display Controls -->
-    <PanelDisplaySetting
-      ref="panelDisplayRef"
-      :is-loading="isLoading"
-      :boolean-items="booleanItemsConfig"
-      :range-items="rangeItemsConfig"
-      :select-items="selectItemsConfig"
-      :trigger-items="triggerItemsConfig"
-    />
 
     <!-- Error state -->
     <div v-if="lastError && !isLoading" class="error-state">
@@ -27,30 +25,33 @@
       <button @click="refreshData" class="retry-btn">Retry</button>
     </div>
 
-    <!-- Windows container with scroll -->
+    <!-- Scoller Container -->
     <div v-else class="windows-container">
       <!-- TabsBased Mode -->
       <div v-if="(panelDisplayRef?.selectItems?.displayMode?.value ?? 'TabsBased') === 'TabsBased'" class="tabs-panel">
         <!-- Virtual Window: Overview of all windows with active/selected and recent tabs -->
-        <TabsOpenHistory
+        <!-- <TabsOpenHistory
           @tab-activated="handleTabActivated"
           @show-context-menu="requestContextMenuShow"
-        />
+        /> -->
 
         <!-- chrome windows, each window contains tabs -->
         <div 
-          v-for="window in sessionsOpen" 
+          v-for="window in windowsFiltered" 
           :key="window.id"
           class="window-container"
           :class="{ 'current-window': window.id === windowCurrentId }"
           :data-window-id="window.id"
         >
           <div class="window-header">
-            <div class="window-title">
-              {{ window.id === windowCurrentId ? 'Current Window' : `Window ${window.id}` }}
-            </div>
-            <div class="tab-count">
-              {{ window.tabs.length }} tab{{ window.tabs.length !== 1 ? 's' : '' }}
+            <div class="window-divider">
+              <div class="window-title">
+                {{ window.id === windowCurrentId ? 'Current Window' : `Window ${window.id}` }}
+                <span v-if="window.id === windowCurrentId" class="current-window-tag">Current</span>
+              </div>
+              <div class="tab-count">
+                {{ window.tabs.length }} tab{{ window.tabs.length !== 1 ? 's' : '' }}
+              </div>
             </div>
           </div>
 
@@ -81,6 +82,7 @@
               :data-window-id="tab.windowId"
               :source="'open'"
               :default-icon="defaultIcon"
+              :class="{ 'recent-tab': isFilterMode && filterList.includes('recent') && isRecentTab(tab, window.id) }"
             />
           </div>
 
@@ -106,7 +108,7 @@
       <!-- WindowsBased Mode -->
       <div v-else-if="(panelDisplayRef?.selectItems?.displayMode?.value ?? 'TabsBased') === 'WindowsBased'" class="overview-container">
         <div 
-          v-for="window in sessionsOpen" 
+          v-for="window in windowsFiltered" 
           :key="window.id"
           class="overview-window"
           :class="{ 'current-window': window.id === windowCurrentId }"
@@ -235,12 +237,27 @@ import { useServerStore } from '@/stores/Server'
 import { useCommunicateStore } from '@/stores/Communicate'
 import { storeToRefs } from 'pinia'
 import { calculateContextMenuPos } from '@/utils/contextMenuPosition'
-import PanelDisplaySetting from '@/panel/PanelDisplaySetting.vue'
-import TabCard from '@/components/TabCard.vue'
+import TabCard from '@/tabs/TabCard.vue'
 import TabsOpenHistory from './TabsOpenHistory.vue'
-import TabsContextMenu from '@/components/TabsContextMenu.vue'
+import TabsContextMenu from '@/tabs/TabsContextMenu.vue'
+import TabsOpenFilter from './TabsOpenFilter.vue'
 
-// No more props needed - data comes from store
+// Props
+const props = defineProps({
+  panelDisplayRef: {
+    type: Object,
+    default: null
+  },
+  searchMode: {
+    type: Boolean,
+    default: false
+  },
+  searchResults: {
+    type: Array,
+    default: () => []
+  }
+})
+
 const emit = defineEmits([
   'tab-activated',
   'show-context-menu',
@@ -283,46 +300,86 @@ const isScrollReportPaused = ref(false)
 const windowIdVisible = ref(null) // currently visible window id
 const scrollEventTimeout = ref(null) // throttling timeout
 
-// ref to PanelDisplaySetting component
-const panelDisplayRef = ref(null)
+const isSearchMode = ref(false)
 
-// configuration for PanelDisplaySetting - completely semantic and configurable
-const booleanItemsConfig = ref([
-  { name: 'showIcon', label: 'Icon', value: true, title: 'Toggle icon display' },
-  { name: 'showTitle', label: 'Title', value: true, title: 'Toggle title display' },
-  { name: 'showUrl', label: 'URL', value: false, title: 'Toggle URL display' },
-  { name: 'useResponsiveGrid', label: 'AutoColNum', value: true, title: 'Auto-fit responsive grid' }
-])
+// filter mode and state
+const isFilterMode = ref(false)
+const filterList = ref([]) // array of active filters: ['active', 'recent', etc.]
 
-const rangeItemsConfig = ref([
-  { name: 'columnsPerRow', value: 2, min: 1, max: 4, step: 1, default: 2, title: 'Columns per row' },
-  { name: 'overviewIconSize', value: 20, min: 12, max: 48, step: 1, default: 20, title: 'Icon size' }
-])
-
-const selectItemsConfig = ref([
-  { 
-    name: 'displayMode', 
-    value: 'TabsBased', 
-    title: 'Display Mode',
-    options: [
-      { value: 'TabsBased', label: 'TabsBased', title: 'Show all tabs with full details' },
-      { value: 'WindowsBased', label: 'WindowsBased', title: 'Window/list overview with tab icons' }
-    ]
-  },
-  {
-    name: 'overviewIconMode',
-    value: 'all',
-    title: 'Tab Icons',
-    options: [
-      { value: 'all', label: 'All', title: 'Show all tab icons' },
-      { value: 'limited', label: 'Limited', title: 'Show first/last 10 icons with count' }
-    ]
+// filter matching logic
+const matchesFilter = (tab, windowId) => {
+  if (filterList.value.length === 0 || filterList.value.includes('all')) {
+    return true
   }
-])
+  
+  const winHistory = tabsOpenHistory.value.get(windowId)
+  if (!winHistory) return false
+  
+  return filterList.value.some(filter => {
+    switch (filter) {
+      case 'active':
+        return tab.isActive === true
+      case 'lastActive':
+        return tab.isLastActive === true
+      case 'browserSelected':
+        return tab.isBrowserSelected === true
+      case 'uiSelected':
+        return tab.isUiSelected === true
+      case 'recent':
+        return winHistory.recent.some(recentTab => recentTab.id === tab.id)
+      default:
+        return false
+    }
+  })
+}
 
-const triggerItemsConfig = ref([
-  { name: 'refresh', icon: '↻', title: 'Refresh', disabled: false }
-])
+// grouped search results by window
+const searchResultsByWindow = computed(() => {
+  if (!isSearchMode.value || !props.searchResults) return new Map()
+  
+  const groupedResults = new Map()
+  props.searchResults.forEach(tab => {
+    const windowId = tab.windowId
+    if (!groupedResults.has(windowId)) {
+      groupedResults.set(windowId, [])
+    }
+    groupedResults.get(windowId).push(tab)
+  })
+  return groupedResults
+})
+
+// filtered windows based on filter mode and search mode criteria
+const windowsFiltered = computed(() => {
+  let baseWindows = sessionsOpen.value || []
+  
+  // Search mode takes priority over filter mode
+  if (isSearchMode.value) {
+    // In search mode, only show windows that have search results
+    return baseWindows.map(window => {
+      const searchResults = searchResultsByWindow.value.get(window.id) || []
+      return {
+        ...window,
+        tabs: searchResults
+      }
+    }).filter(window => window.tabs.length > 0) // Only show windows with search results
+  }
+  
+  // Filter mode
+  if (!isFilterMode.value || filterList.value.length === 0 || filterList.value.includes('all')) {
+    return baseWindows
+  }
+  
+  return baseWindows.map(window => {
+    const filteredTabs = window.tabs.filter(tab => matchesFilter(tab, window.id))
+    return {
+      ...window,
+      tabs: filteredTabs
+    }
+  }).filter(window => window.tabs.length > 0) // Only show windows with matching tabs
+})
+
+// Use passed panelDisplayRef from parent
+const panelDisplayRef = computed(() => props.panelDisplayRef)
 
 // Use tab click delegation composable
 const { createGridEventHandlers, initShiftKeyTracking, updateTabsMap } = useTabClickDelegation()
@@ -334,7 +391,7 @@ const gridTemplateColumns = computed(() => {
   const columns = panelDisplayRef.value?.rangeItems?.columnsPerRow?.value ?? 2
   console.warn('=== TABS OPEN: gridTemplateColumns:', useResponsive, columns, 'panelLoaded:', !!panelDisplayRef.value)
   if (useResponsive) {
-    return `repeat(auto-fit, minmax(${minItemWidth.value}px, 1fr))`
+    return `repeat(auto-fill, minmax(${minItemWidth.value}px, 1fr))`
   } else {
     return `repeat(${columns}, 1fr)`
   }
@@ -687,6 +744,19 @@ const onScrollEvent = () => {
   }, 100) // 0.1s = 100ms
 }
 
+// helper function to check if tab is recent
+const isRecentTab = (tab, windowId) => {
+  const winHistory = tabsOpenHistory.value.get(windowId)
+  if (!winHistory) return false
+  return winHistory.recent.some(recentTab => recentTab.id === tab.id)
+}
+
+// filter change handler
+const handleFiltersChange = (newFilters) => {
+  filterList.value = newFilters
+  isFilterMode.value = newFilters.length > 0 && !newFilters.includes('all')
+}
+
 // Update fast lookup map when sessionsOpen changes
 const updateTabsMapOpen = () => {
   // console.log('TabsOpen.vue: updateTabsMapOpen()')
@@ -696,12 +766,20 @@ const updateTabsMapOpen = () => {
 // Watch for changes in sessionsOpen to update the fast lookup map
 watch(sessionsOpen, updateTabsMapOpen, { immediate: true })
 
-// watch refresh count to trigger refresh when button is clicked
-watch(() => panelDisplayRef.value?.triggerItems?.find?.(item => item.name === 'refresh')?.count, (newCount, oldCount) => {
-  if (newCount > oldCount) {
-    refreshData()
+// Watch for search mode changes from parent
+watch(() => props.searchMode, (newSearchMode) => {
+  isSearchMode.value = newSearchMode
+})
+
+// Watch for search results from parent
+watch(() => props.searchResults, (newSearchResults) => {
+  if (isSearchMode.value && newSearchResults) {
+    // Update search results
+    console.log('TabsOpen: Received search results:', newSearchResults.length)
   }
 })
+
+
 
 // Lifecycle hooks with detailed logging
 onMounted(() => {
@@ -788,9 +866,16 @@ const getActiveAndSelectedTabs = computed(() => {
 
 // scroll to specific window
 const scrollToWindow = (windowId) => {
+  console.log(`scrollToWindow(): Attempting to scroll to window ${windowId}, isSearchMode: ${isSearchMode.value}`)
+  
   const windowContainer = document.querySelector(`.window-container[data-window-id="${windowId}"]`)
   if (!windowContainer) {
     console.warn(`scrollToWindow(): Window container not found for windowId: ${windowId}`)
+    // In search mode, the window might not exist if it has no matching results
+    if (isSearchMode.value) {
+      console.log('scrollToWindow(): In search mode, window might not have search results')
+      return
+    }
     return
   }
   
@@ -799,6 +884,8 @@ const scrollToWindow = (windowId) => {
     console.warn('scrollToWindow(): Windows container not found')
     return
   }
+  
+  console.log(`scrollToWindow(): Found containers, proceeding with scroll`)
   
   // pause scroll reporting during programmatic scroll
   isScrollReportPaused.value = true
@@ -810,6 +897,8 @@ const scrollToWindow = (windowId) => {
   
   // calculate the target scroll position
   const targetScrollTop = currentScrollTop + (windowRect.top - containerRect.top) + 3; // 3px offset from top
+  
+  console.log(`scrollToWindow(): Scrolling from ${currentScrollTop} to ${targetScrollTop}`)
   
   // smooth scroll to the window
   scrollContainer.scrollTo({
@@ -834,7 +923,10 @@ defineExpose({
   windowIdVisible,
   getVisibleWindowId,
   onScrollEvent,
-  isScrollReportPaused
+  isScrollReportPaused,
+  isFilterMode,
+  filterList,
+  isSearchMode
 })
 
 </script>
@@ -855,6 +947,7 @@ defineExpose({
   padding: 12px 16px;
   background-color: #f8f9fa;
   border-bottom: 1px solid #dadce0;
+  gap: 16px;
 }
 
 .tabs-panel {
@@ -868,6 +961,16 @@ defineExpose({
   font-size: 14px;
   color: var(--text-secondary);
   font-weight: 500;
+}
+
+.search-indicator {
+  color: #0d652d;
+  font-weight: 600;
+}
+
+.filter-indicator {
+  color: #1a73e8;
+  font-weight: 600;
 }
 
 .error-state {
@@ -921,40 +1024,47 @@ defineExpose({
 }
 
 .window-header {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #dadce0;
+  padding: 6px 0;
+  padding-bottom: 0px;
+  background-color: transparent;
 }
 
-.current-window .window-header {
-  background-color: #e8f0fe;
+.window-divider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+}
+
+.window-divider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background-color: #dadce0;
+  z-index: 1;
+}
+
+.current-window .window-divider::before {
+  background-color: #1a73e8;
 }
 
 .window-title {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--text-secondary);
+  background-color: white;
+  padding: 0 8px;
+  z-index: 2;
+  position: relative;
 }
 
 .current-window .window-title {
   color: #1a73e8;
-}
-
-.tab-count {
-  font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
-  font-size: 14px;
-  font-weight: bold;
-  color: #87ceeb;
-  background-color: #666;
-  padding: 2px 6px;
-  border-radius: 3px;
-  border: 1px solid #999;
-  letter-spacing: 1px;
-  min-width: 20px;
-  text-align: center;
-  display: inline-block;
+  background-color: #e8f0fe;
 }
 
 

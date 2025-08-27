@@ -9,7 +9,7 @@ export const useTabsSearch = defineStore('tabsSearch', () => {
 
   // Search state
   const searchState = reactive({
-    isSearchActive: false,
+    isSearching: false,
     searchQuery: '',
     get hasSearchQuery() {
       return this.searchQuery.trim().length > 0
@@ -19,16 +19,16 @@ export const useTabsSearch = defineStore('tabsSearch', () => {
       return this.tagsSelected.length > 0
     },
     isTagSearching: false,
-    tabsOpenSearchResults: [],
-    tabsRemoteSearchResults: [],
+    sessionsOpenSearchResults: [],
+    sessionsRemoteSearchResults: [],
     get hasSearchResults() {
-      return this.tabsOpenSearchResults.length > 0 || this.tabsRemoteSearchResults.length > 0
+      return this.sessionsOpenSearchResults.length > 0 || this.sessionsRemoteSearchResults.length > 0
     },
     get isSearchActive() {
       return this.hasSearchQuery || this.hasTagFilter
     },
     get searchResultsNumTotal() {
-      return this.tabsOpenSearchResults.length + this.tabsRemoteSearchResults.length
+      return this.sessionsOpenSearchResults.length + this.sessionsRemoteSearchResults.length
     }
   })
 
@@ -44,8 +44,9 @@ export const useTabsSearch = defineStore('tabsSearch', () => {
     Object.assign(searchState, {
       searchQuery: '',
       tagsSelected: [],
-      tabsOpenSearchResults: [],
-      tabsRemoteSearchResults: []
+      sessionsOpenSearchResults: [],
+      sessionsRemoteSearchResults: [],
+      isSearching: false
     })
   }
 
@@ -64,10 +65,10 @@ export const useTabsSearch = defineStore('tabsSearch', () => {
     }
 
     // Check if any removed tabs are in the open search results
-    const numInit = searchState.tabsOpenSearchResults.length
+    const numInit = searchState.sessionsOpenSearchResults.length
     
     // Filter out the removed tabs from search results
-    searchState.tabsOpenSearchResults = searchState.tabsOpenSearchResults.filter(searchTab => {
+    searchState.sessionsOpenSearchResults = searchState.sessionsOpenSearchResults.filter(searchTab => {
       const isRemoved = removedTabs.some(removedTab => removedTab.id === searchTab.id)
       if (isRemoved) {
         console.log(`TabsSearch store: Removing tab ${searchTab.id} from open search results`)
@@ -75,7 +76,7 @@ export const useTabsSearch = defineStore('tabsSearch', () => {
       return !isRemoved
     })
 
-    const numFinal = searchState.tabsOpenSearchResults.length
+    const numFinal = searchState.sessionsOpenSearchResults.length
     const numRemoved = numInit - numFinal
     
     if (numRemoved > 0) {
@@ -95,19 +96,19 @@ export const useTabsSearch = defineStore('tabsSearch', () => {
     }
 
     // Check if any removed tabs are in the remote search results
-    const numInit = searchState.tabsRemoteSearchResults.length
+    const numInit = searchState.sessionsRemoteSearchResults.length
     
     // Filter out the removed tabs from search results
-    for (let i = searchState.tabsRemoteSearchResults.length - 1; i >= 0; i--) {
-      const searchTab = searchState.tabsRemoteSearchResults[i]
+    for (let i = searchState.sessionsRemoteSearchResults.length - 1; i >= 0; i--) {
+      const searchTab = searchState.sessionsRemoteSearchResults[i]
       const isRemoved = removedTabs.some(removedTab => removedTab.id === searchTab.id)
       if (isRemoved) {
         console.log(`TabsSearch store: Removing tab ${searchTab.id} from remote search results`)
-        searchState.tabsRemoteSearchResults.splice(i, 1)
+        searchState.sessionsRemoteSearchResults.splice(i, 1)
       }
     }
 
-    const numFinal = searchState.tabsRemoteSearchResults.length
+    const numFinal = searchState.sessionsRemoteSearchResults.length
     const numRemoved = numInit - numFinal
     
     if (numRemoved > 0) {
@@ -233,11 +234,11 @@ export const useTabsSearch = defineStore('tabsSearch', () => {
       }
     } else { 
       // FETCH-ALL MODE: all tabs have been downloaded to local. search locally cached tabs
-      const tabsRemoteList = tabsRemoteStore.tabsRemoteList
-      if (tabsRemoteList && Object.keys(tabsRemoteList).length > 0) {
-        for (const [listId, listData] of Object.entries(tabsRemoteList)) {
-          if (listData.tabs) {
-            for (const [tabId, tab] of Object.entries(listData.tabs)) {
+      const sessionsRemote = tabsRemoteStore.sessionsRemote
+      if (sessionsRemote && Object.keys(sessionsRemote).length > 0) {
+        for (const [sessionId, sessionTabs] of Object.entries(sessionsRemote)) {
+          if (sessionTabs.tabs) {
+            for (const [tabId, tab] of Object.entries(sessionTabs.tabs)) {
               if (controller.signal.aborted) return results
               
               // Check text match if we have text query
@@ -267,29 +268,33 @@ export const useTabsSearch = defineStore('tabsSearch', () => {
     console.log('TabsSearch store: Performing search - text:', textQuery, 'tags:', tagFilter)
     
     if (!textQuery && (!tagFilter || tagFilter.length === 0)) {
-      searchState.tabsOpenSearchResults = []
-      searchState.tabsRemoteSearchResults = []
+      searchState.sessionsOpenSearchResults = []
+      searchState.sessionsRemoteSearchResults = []
+      searchState.isSearching = false
       return
     }
+
+    // Set searching state
+    searchState.isSearching = true
 
     try {
       // Check if search was cancelled
       if (controller.signal.aborted) return
 
       // Search open tabs (text only)
-      const tabsOpenSearchResults = searchOpenTabs(textQuery, controller)
+      const sessionsOpenSearchResults = searchOpenTabs(textQuery, controller)
       if (controller.signal.aborted) return
 
       // Search remote tabs (text + tags)
-      const tabsRemoteSearchResults = await searchTabsRemote(textQuery, tagFilter, controller)
+      const sessionsRemoteSearchResults = await searchTabsRemote(textQuery, tagFilter, controller)
       if (controller.signal.aborted) return
       
       console.log(`TabsSearch store: performSearch(): Search completed - \
-        Open: ${tabsOpenSearchResults.length}, Remote: ${tabsRemoteSearchResults.length}`)
+        Open: ${sessionsOpenSearchResults.length}, Remote: ${sessionsRemoteSearchResults.length}`)
 
       // Update search results
-      searchState.tabsOpenSearchResults = tabsOpenSearchResults
-      searchState.tabsRemoteSearchResults = tabsRemoteSearchResults
+      searchState.sessionsOpenSearchResults = sessionsOpenSearchResults
+      searchState.sessionsRemoteSearchResults = sessionsRemoteSearchResults
 
     } catch (error) {
       if (error.name === 'AbortError') {
@@ -297,6 +302,9 @@ export const useTabsSearch = defineStore('tabsSearch', () => {
       } else {
         console.error('TabsSearch store: Search error:', error)
       }
+    } finally {
+      // Clear searching state
+      searchState.isSearching = false
     }
   }
 

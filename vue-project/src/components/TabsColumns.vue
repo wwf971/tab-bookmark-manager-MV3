@@ -28,7 +28,7 @@
             {{ totalOpenTabs || 0 }} tab{{ (totalOpenTabs || 0) !== 1 ? 's' : '' }} in {{ (sessionsOpen || []).length }} window{{ (sessionsOpen || []).length !== 1 ? 's' : '' }}
             </span>
             <span v-show="searchState.isSearchActive">
-              {{ searchState.tabsOpenSearchResults.length }} search result{{ searchState.tabsOpenSearchResults.length !== 1 ? 's' : '' }}
+              {{ searchState.sessionsOpenSearchResults.length }} search result{{ searchState.sessionsOpenSearchResults.length !== 1 ? 's' : '' }}
             </span>
           </div>
         </div>
@@ -48,7 +48,7 @@
           <!-- Search results of open tabs-->
           <div class="search-results-container" v-show="searchState.isSearchActive">
             <TabsSearchResults 
-              :tabs="searchState.tabsOpenSearchResults"
+              :tabs="searchState.sessionsOpenSearchResults"
               source="open"
               @tab-activated="$emit('tab-activated', $event)"
               @tab-closed="$emit('tab-closed', $event)"
@@ -81,11 +81,11 @@
           <h3>Remote Tabs</h3>
           <div class="column-stats">
             <span v-show="!searchState.isSearchActive">
-            <span v-if="remoteTabsLoaded">{{ tabsRemoteNumTotal }} tab{{ tabsRemoteNumTotal !== 1 ? 's' : '' }}</span>
+            <span v-if="remoteTabsLoaded">{{ sessionRemoteTabNumTotal }} tab{{ sessionRemoteTabNumTotal !== 1 ? 's' : '' }}</span>
             <span v-else>Loading...</span>
             </span>
             <span v-show="searchState.isSearchActive">
-              {{ searchState.tabsRemoteSearchResults.length }} search result{{ searchState.tabsRemoteSearchResults.length !== 1 ? 's' : '' }}
+              {{ searchState.sessionsRemoteSearchResults.length }} search result{{ searchState.sessionsRemoteSearchResults.length !== 1 ? 's' : '' }}
             </span>
           </div>
         </div>
@@ -101,7 +101,7 @@
           <!-- search results of remote tabs-->
           <div v-show="searchState.isSearchActive" class="search-results-container">
             <TabsSearchResults
-              :tabs="searchState.tabsRemoteSearchResults"
+              :tabs="searchState.sessionsRemoteSearchResults"
               source="remote"
             />
           </div>
@@ -223,12 +223,12 @@ const gridTemplate = computed(() => {
   return `repeat(${columnCount}, 1fr)`
 })
 
-const tabsRemoteNumTotal = computed(() => {
-  return tabsRemoteStore.tabsRemoteNumTotal
+const sessionRemoteTabNumTotal = computed(() => {
+  return tabsRemoteStore.sessionRemoteTabNumTotal
 })
 
 const remoteTabsLoaded = computed(() => {
-  return tabsRemoteStore.isWinRemoteLoaded
+  return tabsRemoteStore.isSessionsRemoteLoaded
 })
 
 // Watch for tab types being activated

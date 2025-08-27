@@ -287,8 +287,8 @@ export const useTabsSelect = defineStore('tabsSelect', () => {
         }
       }
     } else if (source === 'remote') {
-      Object.entries(tabsRemoteStore.tabsRemoteList || {}).forEach(([listId, listData]) => {
-        Object.entries(listData.tabs || {}).forEach(([tabId, tab]) => {
+      Object.entries(tabsRemoteStore.sessionsRemote || {}).forEach(([sessionId, sessionTabs]) => {
+        Object.entries(sessionTabs.tabs || {}).forEach(([tabId, tab]) => {
           // Return the original tab object to maintain reactivity
           allTabs.push(tab)
         })

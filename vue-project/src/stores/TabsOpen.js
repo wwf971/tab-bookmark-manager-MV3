@@ -3,21 +3,17 @@ import { ref, computed } from 'vue'
 import { useTabsSelect } from './TabsSelect'
 
 export const useTabsOpen = defineStore('tabsOpen', () => {
-  // Get select store instance
-  const tabsSelectStore = useTabsSelect()
-  // State
   const sessionsOpen = ref([]) // Array of windows, each with tabs array containing isUiSelected property
-
 
   const windowCurrentId = ref(null)
   const windowCurrent = computed(() => {
     return sessionsOpen.value.find(w => w.id === windowCurrentId.value)
   })
 
-
   // simple history structure: windowId -> { active: [tab], selected: [tabs], recent: [tabs] }
   // all arrays contain references to actual tab objects from sessionsOpen
   const tabsOpenHistory = ref(new Map()) // windowId -> { active: [tab], selected: [tabs], recent: [tabs] }
+    // here selected is browser-selected tabs, not ui-selected tabs
   const isLoading = ref(false)
   const lastError = ref(null)
 
@@ -422,6 +418,7 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
   let selectionInterval = null
   let eventListenersInitialized = false
 
+  const tabsSelectStore = useTabsSelect()
   const initEventListeners = () => {
     if (eventListenersInitialized) return
   
@@ -620,8 +617,14 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
     const tabInfo = tabsMapOpen.value.get(tabId)
     let tab = null;
     if (!tabInfo) {
+      // cannot find tab from quick lookup tabsMapOpen
+      // iterates through all windows to find the tab
       console.error(`onTabOpenUpdated(): Tab ${tabId} not found from tabsMapOpen`)
-      tab = window.tabs.find(t => t.id === tabId)
+      // Find the tab in any window when fast lookup fails
+      for (const window of sessionsOpen.value) {
+        tab = window.tabs.find(t => t.id === tabId)
+        if (tab) break
+      }
     }else{
       tab = tabInfo.tab
     }
@@ -742,8 +745,6 @@ export const useTabsOpen = defineStore('tabsOpen', () => {
       }
     })
   }
-
-
   
   return {
     // State

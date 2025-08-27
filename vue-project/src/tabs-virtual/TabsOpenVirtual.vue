@@ -115,8 +115,8 @@ import { useTabsSelect } from '../stores/TabsSelect'
 import { storeToRefs } from 'pinia'
 import { calculateContextMenuPos } from '../utils/contextMenuPosition'
 import PanelDisplaySetting from '@/panel/PanelDisplaySetting.vue'
-import TabCard from './TabCard.vue'
-import TabsContextMenu from './TabsContextMenu.vue'
+import TabCard from '@/tabs/TabCard.vue'
+import TabsContextMenu from '@/tabs/TabsContextMenu.vue'
 
 // Import virtual scroller styles
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'

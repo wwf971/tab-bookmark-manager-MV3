@@ -22,6 +22,13 @@ const tabModeText = computed(() => {
 })
 
 
+const tabMode = ref(0) // 0: Free, 1: Always First, 2: Always Last
+const toggleTabMode = () => {
+  tabMode.value = (tabMode.value + 1) % 3
+  applyTabMode()
+}
+
+
 const applyTabMode = async () => {
   if (tabMode.value === 0) return
 
@@ -47,3 +54,14 @@ const applyTabMode = async () => {
 
 
 </script>
+
+<style scoped>
+.btn-primary {
+  background-color: #1a73e8;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #1557b0;
+}
+</style>

@@ -56,7 +56,7 @@
         <div class="column-header">
           <h3>Remote Tabs ☁️</h3>
           <div class="column-stats">
-            <span v-if="remoteTabsLoaded">{{ tabsRemoteNumTotal }} tabs</span>
+            <span v-if="remoteTabsLoaded">{{ sessionRemoteTabNumTotal }} tabs</span>
             <span v-else>Loading...</span>
           </div>
         </div>
@@ -164,12 +164,12 @@ const gridTemplate = computed(() => {
   return `repeat(${columnCount}, 1fr)`
 })
 
-const tabsRemoteNumTotal = computed(() => {
-  return tabsRemoteStore.tabsRemoteNumTotal
+const sessionRemoteTabNumTotal = computed(() => {
+  return tabsRemoteStore.sessionRemoteTabNumTotal
 })
 
 const remoteTabsLoaded = computed(() => {
-  return tabsRemoteStore.isWinRemoteLoaded
+  return tabsRemoteStore.isSessionsRemoteLoaded
 })
 
 // Methods

@@ -274,6 +274,8 @@ const handleOpenTagsManager = (data) => {
   emit('open-tags-manager', data)
 }
 
+import { uploadTabToRemote } from '@/stores/TabsRemoteRequest.js'
+
 const startUpload = async () => {
   if (isUploading.value || !props.serverUrl || props.tabs.length === 0) return
 
@@ -304,7 +306,7 @@ const startUpload = async () => {
         const tagsCurrent = tagsSelectRef.value?.getCurrentTags() || { tags_id: [], tags_name: [] }
         // console.log('TabsUploadModal.vue: startUpload(): tagsCurrent:', tagsCurrent)
         let post_dict = {
-          task: 'create_url_cache',
+          task: 'create_tab_remote',
           tags_id: tagsCurrent.tags_id,
           tags_name: tagsCurrent.tags_name,
         }
@@ -314,7 +316,7 @@ const startUpload = async () => {
           post_dict.comment = comment.value.trim()
         }
         // console.log('TabsUploadModal.vue: startUpload(): post_dict:', post_dict)
-        const result = await networkRequest.uploadTabToRemote(
+        const result = await uploadTabToRemote(
           tab,
           post_dict,
           false // fetchTabsRemoteRecent
@@ -327,7 +329,7 @@ const startUpload = async () => {
           tabsRemoteCreated.push(tab_remote);
           let tab_open_id = tab.id; // the id of successfully uploaded tab in tabsOpen
         //   let tab_remote_id = result.data.id;
-        //   let list_id = result.data.list_id;
+        //   let session_id = result.data.session_id;
           tabsOpenUploadedId.push(tab_open_id);
 
         } else {

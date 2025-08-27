@@ -60,12 +60,12 @@ export const useNoteStore = defineStore('note', () => {
 		if(is_fuzzy){
 			post_dict.is_fuzzy = is_fuzzy
 		}
-		const response = await networkRequest.post('/note/', post_dict)
+		const response = await networkRequest.post('/note/search_note', post_dict)
 		return response
 	}
 
 	const getRecentNote = async (num = 5, type = 'set') => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/get_recent_note', {
 			task: 'get_recent_note',
 			num: num,
 			type: type
@@ -74,7 +74,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const getNoteById = async (id) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/get_note_by_id', {
 			task: 'get_note_by_id',
 			id: id
 		})
@@ -82,7 +82,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const addTextSimple = async (text) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/add_text_simple', {
 			task: 'add_text_simple',
 			text: text
 		})
@@ -90,7 +90,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const addTitleContent = async (title, content) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/add_title_content', {
 			task: 'add_title_content',
 			title: title,
 			content: content
@@ -99,7 +99,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const addKeyValue = async (key, value) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/add_key_value', {
 			task: 'add_key_value',
 			key: key,
 			value: value
@@ -108,7 +108,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const addSet = async (name, children = {}) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/create_set', {
 			task: 'create_set',
 			name: name,
 			children: children
@@ -117,7 +117,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const updateNote = async (id, updateDict) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/update_note', {
 			task: 'update_note',
 			id: id,
 			update_dict: updateDict
@@ -126,7 +126,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const deleteNote = async (id) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/delete_note', {
 			task: 'delete_note',
 			id: id
 		})
@@ -134,7 +134,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const renameSet = async (id, nameNew) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/rename_set', {
 			task: 'rename_set',
 			id: id,
 			name_new: nameNew
@@ -143,7 +143,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const searchSet = async (name) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/search_set', {
 			task: 'search_set',
 			name: name
 		})
@@ -151,7 +151,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const addNoteToSet = async (noteId, setId, roleStr = '', roleId = null) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/add_note_to_set', {
 			task: 'add_note_to_set',
 			id: noteId,
 			set_id: setId,
@@ -162,7 +162,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const removeNoteFromSet = async (noteId, setId) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/remove_note_from_set', {
 			task: 'remove_note_from_set',
 			id: noteId,
 			set_id: setId
@@ -171,7 +171,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const updateNoteRoleInSet = async (noteId, setId, roleStr, roleId) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/update_note_role_in_set', {
 			task: 'update_note_role_in_set',
 			id: noteId,
 			set_id: setId,
@@ -183,7 +183,7 @@ export const useNoteStore = defineStore('note', () => {
 
 	// File API methods
 	const getFileInfo = async (fileId) => {
-		const response = await networkRequest.post('/file/', {
+		const response = await networkRequest.post('/file/get_file_info', {
 			task: 'get_file_info',
 			file_id: fileId
 		})
@@ -191,7 +191,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const getFileBytes = async (fileId) => {
-		const response = await networkRequest.post('/file/', {
+		const response = await networkRequest.post('/file/get_file_bytes', {
 			task: 'get_file_bytes',
 			file_id: fileId
 		})
@@ -199,7 +199,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const uploadFile = async (fileBytes, fileName, timeZone) => {
-		const response = await networkRequest.post('/file/', {
+		const response = await networkRequest.post('/file/upload_file', {
 			task: 'upload_file',
 			file_bytes: fileBytes,
 			file_name: fileName,
@@ -209,7 +209,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const deleteFile = async (fileId) => {
-		const response = await networkRequest.post('/file/', {
+		const response = await networkRequest.post('/file/delete_file', {
 			task: 'delete_file',
 			file_id: fileId
 		})
@@ -218,7 +218,7 @@ export const useNoteStore = defineStore('note', () => {
 
 	// Tag management API methods
 	const setTagsForNote = async (noteId, tagsName = [], tagsId = []) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/set_tags_for_note', {
 			task: 'set_tags_for_note',
 			id: noteId,
 			tags_name: tagsName,
@@ -228,7 +228,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const addTagsToNote = async (noteId, tagsName = [], tagsId = []) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/add_tags_to_note', {
 			task: 'add_tags_to_note',
 			id: noteId,
 			tags_name: tagsName,
@@ -238,7 +238,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const addTagToNoteAtPos = async (noteId, tagId, tagIndex) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/add_tag_to_note', {
 			task: 'add_tag_to_note',
 			id: noteId,
 			tag_id: tagId,
@@ -248,7 +248,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const removeTagsFromNote = async (noteId, tagsName = [], tagsId = []) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/remove_tags_from_note', {
 			task: 'remove_tags_from_note',
 			id: noteId,
 			tags_name: tagsName,
@@ -258,7 +258,7 @@ export const useNoteStore = defineStore('note', () => {
 	}
 
 	const changeTagOrderForNote = async (noteId, tagId, indexNew) => {
-		const response = await networkRequest.post('/note/', {
+		const response = await networkRequest.post('/note/change_tag_order_for_note', {
 			task: 'change_tag_order_for_note',
 			id: noteId,
 			tag_id: tagId,

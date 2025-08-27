@@ -1,8 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref, onScopeDispose } from 'vue'
+import {
+  uploadTabToRemote
+} from '@/stores/TabsRemoteRequest.js'
+
+
 
 export const useBookmarkStore = defineStore('bookmark', () => {
-
   const bookmarksLocal = ref({})
   const bookmarksChildren = ref({})
   const bookmarksLocalRootId = ref('')
@@ -273,6 +277,7 @@ export const useBookmarkStore = defineStore('bookmark', () => {
     }
   }
 
+
   const uploadBookmarkLocalToRemote = async (id, options = {}) => {
     try {
       const { 
@@ -280,7 +285,7 @@ export const useBookmarkStore = defineStore('bookmark', () => {
         tags_name = [], 
         tags_id = [], 
         comment = '',
-        task = 'create_url_cache'
+        task = 'create_tab_remote'
       } = options
       
       // Get bookmark details
@@ -312,7 +317,7 @@ export const useBookmarkStore = defineStore('bookmark', () => {
       }
 
       // Upload using NetworkRequest store
-      const uploadResult = await networkRequest.uploadTabToRemote(
+      const uploadResult = await uploadTabToRemote(
         tabForUpload, 
         { task, tags_name, tags_id, comment },
         true // fetchTabsRemoteRecent
