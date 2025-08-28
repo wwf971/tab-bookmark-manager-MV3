@@ -1,11 +1,11 @@
 <template>
   <div class="tab-manager">
-    <header>
+    <div>
       <div style="display: flex; align-items: center; gap: 10px;">
-        <h1>Tab Manager</h1>
+        <div>Tab Manager</div>
         <TabsPin />
       </div>
-    </header>
+    </div>
 
     <!-- Content Views -->
     <div class="content-views">
@@ -66,7 +66,7 @@
     <!-- Centralized Tags Edit Modal -->
     <TagsEdit
       @close="tagsEditStore.closeTagsEdit"
-      @saved="handleTagsEditSaved"
+      @tags-saved="handleTabTagsSaved"
       @tag-renamed="handleTagRenamed"
       @tag-merged="handleTagMerged"
       @open-tags-manager="handleOpenTagsManager"
@@ -84,21 +84,20 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useNetworkRequest } from '../stores/NetworkRequest'
-import { useTabsOpen } from '../stores/TabsOpen'
-import { useTabsSelect } from '../stores/TabsSelect'
-import { useTagsEdit } from '../stores/TagsEdit'
-import { useTabsRemote } from '../stores/TabsRemote'
-import TabsMainWindow from '@/tabs/TabsMainWindow.vue'
-import SettingsRemote from '@/setting/SettingsRemote.vue'
-import SnapshotManager from './snapshot/SnapshotManager.vue'
-import TabsUploadModal from './TabsUploadModal.vue'
-import TagsEdit from './tag/TagsEdit.vue'
-import TagsManager from './TagsManager.vue'
+import { useNetworkRequest } from '@/network/NetworkRequest'
+import { useSessionsOpen } from '@/sessions-open/SessionsOpen'
+import { useTabsSelect } from '@/tabs/TabsSelect.js'
+import { useTagsEdit } from '@/tags/TagsEdit'
+import { useTabsRemote } from '@/sessions-remote/SessionsRemote'
+import TabsMainWindow from '@/TabsMainWindow.vue'
+import SnapshotManager from '@/snapshot/SnapshotManager.vue'
+import TabsUploadModal from '@/tabs/TabsUploadModal.vue'
 import TabsPin from '@/tabs/TabsPin.vue'
+import TagsEdit from '@/tags/TagsEdit.vue'
+import TagsManager from '@/tags/TagsManager.vue'
 
 
-// Main views configuration (Level 1)
+// main views configuration (Level 1)
 const mainViews = [
   { id: 'tabs', label: 'Tabs' },
   { id: 'other', label: 'Other Functions' }
@@ -139,7 +138,7 @@ const activeBookmarkTypes = ref(new Set()) // Default: no bookmarks shown
 
 // Store
 const networkRequest = useNetworkRequest()
-const tabsOpenStore = useTabsOpen()
+const tabsOpenStore = useSessionsOpen()
 const tabsSelectStore = useTabsSelect()
 const tagsEditStore = useTagsEdit()
 const tabsRemoteStore = useTabsRemote()
@@ -149,7 +148,7 @@ const openSelectionCount = computed(() => tabsSelectStore.getSelectedCount('open
 const remoteSelectionCount = computed(() => tabsSelectStore.getSelectedCount('remote'))
 
 // Computed
-import { useServerStore } from '@/stores/Server.js'
+import { useServerStore } from '@/network/Server.js'
 const serverStore = useServerStore()
 
 const currentServerUrl = computed(() => {
@@ -191,7 +190,7 @@ const handleShowContextMenu = (event) => {
 const handleUploadSingleTab = async (tab) => {
   // Delegate to upload single tab functionality
   try {
-    const result = await networkRequest.uploadTabToRemote(tab)
+    const result = await networkRequest.uploadTabToServer(tab)
     if (result.is_success) {
       console.log('TabManager.vue: Single tab uploaded successfully')
       // Optionally show success notification
@@ -241,10 +240,11 @@ const handleUploadComplete = (result) => {
 }
 
 // Tags Edit event handlers
-const handleTagsEditSaved = (data) => {
+const handleTabTagsSaved = (data) => {
   console.log('Tags saved:', data)
   
-  // Update the tab object in TabsRemote store with the new tags
+
+  // update the tab object in TabsRemote store with the new tags
   if (data.tab && data.tab.id) {
     tabsRemoteStore.updateTabInLocal(data.tab.id, {
       tags_id: data.tags_id,
@@ -319,15 +319,6 @@ h1 {
   cursor: pointer;
   font-weight: 500;
   transition: background-color 0.2s;
-}
-
-.btn-primary {
-  background-color: #1a73e8;
-  color: white;
-}
-
-.btn-primary:hover {
-  background-color: #1557b0;
 }
 
 .btn-success {

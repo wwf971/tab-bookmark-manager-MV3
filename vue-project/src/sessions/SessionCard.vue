@@ -7,14 +7,16 @@
     @contextmenu="$emit('contextmenu', $event)"
   >
     <div class="session-card-content">
-      <div class="session-card-name">
-        {{ sessionName }}
+      <div style="display: flex; gap: 4px;">
+        <div class="session-card-name">
+          {{ sessionName }}
+        </div>
         <span v-if="isCurrentWindow" class="current-window-tag">Current</span>
+        <div v-if="shouldDisplaySearchResult" class="search-result-count">
+          +{{ searchResultTabNum }}
+        </div>
       </div>
       <div class="session-card-counts">
-        <div v-if="shouldDisplaySearchResult" class="search-result-count">
-          {{ searchResultTabNum }}
-        </div>
         <div class="session-card-count">
           {{ tabCount }} tab{{ tabCount !== 1 ? 's' : '' }}
         </div>
@@ -24,7 +26,7 @@
 </template>
 
 <script setup>
-// Props
+// props
 const props = defineProps({
   sessionName: {
     type: String,
@@ -95,8 +97,6 @@ const emit = defineEmits(['click', 'contextmenu'])
   line-height: 1.2;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
   gap: 4px;
 }
 
@@ -105,17 +105,7 @@ const emit = defineEmits(['click', 'contextmenu'])
   align-items: center;
 }
 
-.search-result-count {
-  font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
-  font-size: 10px;
-  font-weight: 600;
-  color: #0d652d;
-  background-color: #e6f4ea;
-  padding: 2px 6px;
-  border-radius: 8px;
-  border: 1px solid #c4e7d1;
-  letter-spacing: 0.5px;
-}
+
 
 .session-card-count {
   font-family: 'Courier New', 'Monaco', 'Menlo', monospace;

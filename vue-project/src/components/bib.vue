@@ -189,7 +189,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { useBibliographyStore } from '../stores/Bibliography'
+import { useBibliographyStore } from '@/network/Bibliography'
 import BibCard from './BibCard.vue'
 
 const bibliographyStore = useBibliographyStore()

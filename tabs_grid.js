@@ -398,7 +398,7 @@ function loadSessionsOpen() {
     });
 }
 
-// Create a window element
+// create a window element
 function createWindowElement(window, isCurrentWindow) {
     const windowElement = document.createElement('div');
     windowElement.className = 'window-container';
@@ -409,7 +409,7 @@ function createWindowElement(window, isCurrentWindow) {
     
     const windowTitle = document.createElement('div');
     windowTitle.className = 'window-title';
-    windowTitle.textContent = isCurrentWindow ? 'Current Window' : `Window ${window.id}`;
+    windowTitle.textContent = `Window ${window.id}`;
     
     const tabCount = document.createElement('div');
     tabCount.className = 'tab-count';

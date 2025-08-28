@@ -5,6 +5,8 @@ node_modules/
 ./dist/
 *.zip
 
+.env.development
+
 # user.config.js
 user.config.0.js
 

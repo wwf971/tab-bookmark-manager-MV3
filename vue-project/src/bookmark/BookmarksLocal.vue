@@ -53,16 +53,13 @@
 <script setup>
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useBookmarkStore } from '@/bookmark/Bookmark.js'
+import { storeToRefs } from 'pinia'
 import Bookmark from './Bookmark.vue'
 import BookmarkPath from './BookmarkPath.vue'
 import PanelDisplaySetting from '@/panel/PanelDisplaySetting.vue'
-import { storeToRefs } from 'pinia'
+
 const bookmarkStore = useBookmarkStore()
-const {
-  bookmarksLocal,
-  bookmarksChildren,
-  bookmarksLocalRootId
-} = storeToRefs(bookmarkStore)
+const { bookmarksLocal, bookmarksChildren, bookmarksLocalRootId } = storeToRefs(bookmarkStore)
 
 const props = defineProps({
   nodePathInit: {

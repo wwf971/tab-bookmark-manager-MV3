@@ -99,14 +99,15 @@
 <script setup>
 import { ref, computed } from 'vue'
 import TabsOpenVirtual from './TabsOpenVirtual.vue'
-import TabsRemote from './TabsRemote.vue'
-import TabsSearchResults from './TabsSearchResults.vue'
+import TabsRemote from './SessionsRemote.vue'
+
 import TabsUploadModal from './TabsUploadModal.vue'
-import { useTabsRemote } from '../stores/TabsRemote'
-import { useNetworkRequest } from '../stores/NetworkRequest'
-import { useTabsSearch } from '../stores/TabsSearch'
+import { useTabsRemote } from '@/sessions-remote/SessionsRemote'
+import { useNetworkRequest } from '@/network/NetworkRequest.js'
+import { useTabsSearch } from '@/search/TabsSearch'
+import TabsSearchResults from '@/search/TabsSearchResults.vue'
 import { storeToRefs } from 'pinia'
-import { useTabsOpen } from '../stores/TabsOpen'
+import { useSessionsOpen } from '@/sessions-open/SessionsOpen'
 
 // Props
 const props = defineProps({
@@ -135,7 +136,7 @@ const networkRequest = useNetworkRequest()
 const { urlListsLoaded } = storeToRefs(tabsRemoteStore)
 
 // Use TabsOpen store for open tabs data
-const tabsOpenStore = useTabsOpen()
+const tabsOpenStore = useSessionsOpen()
 const { tabsOpenNumTotal: totalOpenTabs, sessionsOpen } = storeToRefs(tabsOpenStore)
 
 // Use TabsSearch store for search state
@@ -204,10 +205,10 @@ const handleUploadSelectedTabs = async (source) => {
   let selectedTabs = []
   
   if (source === 'open') {
-    const tabsSelectStore = await import('../stores/TabsSelect.js').then(m => m.useTabsSelect())
+    const tabsSelectStore = await import('@/tabs/TabsSelect.js').then(m => m.useTabsSelect())
     selectedTabs = tabsSelectStore.getSelectedTabs('open')
   } else if (source === 'remote') {
-    const tabsSelectStore = await import('../stores/TabsSelect.js').then(m => m.useTabsSelect())
+    const tabsSelectStore = await import('@/tabs/TabsSelect.js').then(m => m.useTabsSelect())
     selectedTabs = tabsSelectStore.getSelectedTabs('remote')
   }
   

@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import UploadTab from '../../components/UploadTab.vue'
+import UploadTab from '../../popup/UploadTab.vue'
 import '../../assets/base.css'
 import '../../assets/popup.css'
 

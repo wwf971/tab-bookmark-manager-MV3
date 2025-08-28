@@ -56,11 +56,11 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import TabManager from './TabManager.vue'
-import Note from './note/Note.vue'
-import NoteSearch from './note/NoteSearch.vue'
-import Settings from '@/setting/Settings.vue'
+import Note from '@/note/Note.vue'
+import NoteSearch from '@/note/NoteSearch.vue'
+import Settings from '@/settings/Settings.vue'
 import Bibliography from './bib.vue'
-import BookmarksLocal from '@/boomark/BookmarksLocal.vue'
+import BookmarksLocal from '@/bookmark/BookmarksLocal.vue'
 
 
 // tabs at topmost
@@ -90,7 +90,7 @@ const onSettingsTabClose = () => {
   tabActive.value = 'tabs'
 }
 
-import { useServerStore } from '../stores/Server'
+import { useServerStore } from '@/network/Server.js'
 const serverStore = useServerStore()
 onMounted(() => {
   serverStore.getSettingsServer(false)

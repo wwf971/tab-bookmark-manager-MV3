@@ -20,8 +20,8 @@ export function useTabClickDelegation() {
     executionCount++
     // console.warn(`useTabClickDelegation.js: Store access #${executionCount} at ${new Date().toISOString()}`)
     if (!tabsOpenStore) {
-      const { useTabsOpen } = await import('../stores/TabsOpen.js')
-      tabsOpenStore = useTabsOpen()
+      const { useSessionsOpen } = await import('@/sessions-open/SessionsOpen.js')
+      tabsOpenStore = useSessionsOpen()
       // console.warn('useTabClickDelegation.js: TabsOpen store initialized for the first time')
     }
     return tabsOpenStore
@@ -29,7 +29,7 @@ export function useTabClickDelegation() {
   
   const getTabsRemoteStore = async () => {
     if (!tabsRemoteStore) {
-      const { useTabsRemote } = await import('../stores/TabsRemote.js')
+      const { useTabsRemote } = await import('@/sessions-remote/SessionsRemote.js')
       tabsRemoteStore = useTabsRemote()
     }
     return tabsRemoteStore

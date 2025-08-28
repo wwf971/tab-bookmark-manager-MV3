@@ -293,7 +293,7 @@ const startUpload = async () => {
   const tabsOpenUploadedId = []
 
   try {
-    // Upload tabs one by one (skip already successfully uploaded tabs)
+    // upload tabs one by one (skip already successfully uploaded tabs)
     for (const tab of props.tabs) {
       // Skip tabs that have already been successfully uploaded
       if (tabsOpenUploadResults.value[tab.id]?.success) {

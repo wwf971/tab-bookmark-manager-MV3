@@ -47,7 +47,7 @@
           :class="{ 'current-window': item.windowId === windowCurrentId }"
         >
           <div class="window-title">
-            {{ item.windowId === windowCurrentId ? 'Current Window' : `Window ${item.windowId}` }}
+            {{ `Window ${item.windowId}` }}
           </div>
           <div class="tab-count">
             {{ item.tabCount }} tab{{ item.tabCount !== 1 ? 's' : '' }}
@@ -110,8 +110,8 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { RecycleScroller } from 'vue-virtual-scroller'
 
 import { useTabClickDelegation } from '../composables/useTabClickDelegation'
-import { useTabsOpen } from '../stores/TabsOpen'
-import { useTabsSelect } from '../stores/TabsSelect'
+import { useSessionsOpen } from '@/sessions-open/SessionsOpen'
+import { useTabsSelect } from '@/tabs/TabsSelect'
 import { storeToRefs } from 'pinia'
 import { calculateContextMenuPos } from '../utils/contextMenuPosition'
 import PanelDisplaySetting from '@/panel/PanelDisplaySetting.vue'
@@ -131,7 +131,7 @@ const emit = defineEmits([
 ])
 
 // Use Pinia store
-const tabsStore = useTabsOpen()
+const sessionStore = useSessionsOpen()
 const tabsSelectStore = useTabsSelect()
 
 const {
@@ -140,16 +140,16 @@ const {
   tabsOpenNumTotal, 
   isLoading, 
   lastError
-} = storeToRefs(tabsStore)
+} = storeToRefs(sessionStore)
 
-const {tabsMapOpen} = storeToRefs(tabsStore)
+const {tabsMapOpen} = storeToRefs(sessionStore)
 
 // Get methods from store
 const {
   activateTab, 
   closeTab, 
   refreshData, 
-} = tabsStore
+} = sessionStore
 
 // ref to PanelDisplaySetting component
 const panelDisplayRef = ref(null)
@@ -510,7 +510,7 @@ onMounted(async () => {
   // configuration is now set declaratively in booleanItemsConfig above
   // showUrl is already set to false in the config
   
-  // await initTabsOpen() // called by TabsOpen.vue
+  // await initTabsOpen() // called by SessionsOpen.vue
 })
 
 onUnmounted(() => {

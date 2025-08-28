@@ -5,7 +5,7 @@
 </template>
 
 <script setup>
-import UploadTab from '../../components/UploadTab.vue'
+import UploadTab from '../../popup/UploadTab.vue'
 </script>
 
 <style>
