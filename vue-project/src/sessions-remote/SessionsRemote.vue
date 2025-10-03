@@ -8,7 +8,7 @@
         </span>
         <span v-else-if="!isSessionsRemoteLoading">
           {{ tabsRemoteStore.isFetchAllTabsFromRemoteOnInit ? 'Fetch All Mode' : 'Search Only Mode' }} | 
-          {{ Object.keys(displayData || {}).length }} list{{ Object.keys(displayData || {}).length !== 1 ? 's' : '' }},
+          {{ Object.keys(dataDisplay || {}).length }} list{{ Object.keys(dataDisplay || {}).length !== 1 ? 's' : '' }},
           <span v-if="isSearchMode" class="search-indicator">(search)</span>
           <span v-else-if="isFilterMode && filterList.length > 0" class="filter-indicator">(filtered)</span>
           {{ sessionRemoteTabNumTotal }} tab{{ sessionRemoteTabNumTotal !== 1 ? 's' : '' }}
@@ -48,7 +48,7 @@
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="!isSessionsRemoteLoading && !isFetchingFromServer && Object.keys(displayData || {}).length === 0" class="empty-state">
+    <div v-else-if="!isSessionsRemoteLoading && !isFetchingFromServer && Object.keys(dataDisplay || {}).length === 0" class="empty-state">
       <div class="empty-message">
         {{ tabsRemoteStore.isFetchAllTabsFromRemoteOnInit ? 'No remote tabs found' : 'Use search to find remote tabs' }}
       </div>
@@ -62,12 +62,12 @@
     </div>
 
     <!-- Lists container with scroll -->
-    <div v-else-if="!isFetchingFromServer && !(isSessionsRemoteLoading && !isSessionsRemoteLoaded)" class="lists-container">
+    <div v-else-if="!isFetchingFromServer && !(isSessionsRemoteLoading && !isSessionsRemoteLoaded)" class="sessions-container">
       <!-- TabsBased Mode -->
       <div v-if="displayMode === 'TabsBased'" class="panel-container">
         <!-- Remote Sessions Lists -->
         <div 
-          v-for="(sessionTabs, sessionId) in displayData" 
+          v-for="(sessionTabs, sessionId) in dataDisplay" 
           :key="sessionId"
           class="list-container"
           :data-session-id="sessionId"
@@ -89,7 +89,6 @@
             :style="{
               display: 'grid',
               gridTemplateColumns: gridTemplateColumns,
-              gap: gridGap,
               gridAutoRows: 'min-content'
             }"
             @click="handleGridClick"
@@ -112,8 +111,6 @@
               :data-tab-id="tabId"
               :data-list-id="sessionId"
             />
-
-
           </div>
         </div>
         <!-- Context Menu -->
@@ -122,8 +119,8 @@
           :x="contextMenu.x"
           :y="contextMenu.y"
           :tab="contextMenu.tab"
-          :selected-count="remoteSelectionCount"
-          :has-selection="remoteSelectionCount > 0"
+          :selected-count="selectedTabNum"
+          :has-selection="selectedTabNum > 0"
           :selected-tabs="selectedRemoteTabs"
           :menu-items="contextMenuItems"
           :is-loading="contextMenuLoading.isLoading"
@@ -135,7 +132,7 @@
       <!-- WindowsBased Mode -->
       <div v-else-if="displayMode === 'WindowsBased'" class="overview-container">
         <div 
-          v-for="(sessionTabs, sessionId) in displayData" 
+          v-for="(sessionTabs, sessionId) in dataDisplay" 
           :key="sessionId"
           class="overview-list"
         >
@@ -328,8 +325,6 @@ const gridTemplateColumns = computed(() => {
   }
 })
 
-// computed grid gap
-const gridGap = computed(() => '8px')
 
 // computed minimum item width
 const minItemWidth = computed(() => 200)
@@ -368,7 +363,7 @@ const contextMenuLoading = ref({
 })
 
 // Computed for selection count
-const remoteSelectionCount = computed(() => tabsSelectStore.getSelectedCount('remote'))
+const selectedTabNum = computed(() => tabsSelectStore.getSelectedCount('remote'))
 const selectedRemoteTabs = computed(() => tabsSelectStore.getSelectedTabs('remote'))
 
 // Context menu items for remote tabs
@@ -384,7 +379,7 @@ const contextMenuItems = computed(() => {
   })
   
   // Edit tags (only for single tab selection)
-  if (remoteSelectionCount.value <= 1) {
+  if (selectedTabNum.value <= 1) {
     items.push({ 
       name: 'edit-tags', 
       text: 'Edit Tags', 
@@ -393,7 +388,7 @@ const contextMenuItems = computed(() => {
   }
   
   // Change type to url (only for single tab selection)
-  if (remoteSelectionCount.value <= 1) {
+  if (selectedTabNum.value <= 1) {
     items.push({ 
       name: 'change-type-to-url', 
       text: 'Change to URL type', 
@@ -411,7 +406,7 @@ const contextMenuItems = computed(() => {
   })
   
   // Clear selection (only if there's a selection)
-  if (remoteSelectionCount.value > 0) {
+  if (selectedTabNum.value > 0) {
     items.push({ 
       name: 'clear-selection', 
       text: 'Clear selection', 
@@ -445,23 +440,20 @@ const searchResultsByList = computed(() => {
 })
 
 // display data - search results in search mode, filtered sessions in filter mode, regular sessions otherwise
-const displayData = computed(() => {
-  // Search mode takes priority over filter mode
+const dataDisplay = computed(() => {
+  // search mode takes priority over filter mode
   if (isSearchMode.value) {
     return searchResultsByList.value
   }
   
-  // Filter mode
+  // filter mode
   if (isFilterMode.value) {
     return sessionsRemoteFiltered.value
   }
   
-  // Regular mode
+  // regular mode
   return sessionsRemote.value
 })
-
-// Helper functions
-// Note: getAllRemoteTabsFlat removed - now handled internally by TabsSelect store for better performance
 
 // filter change handler
 const handleFiltersChange = async (newFilters) => {
@@ -507,8 +499,8 @@ const handleTabRemove = async (tab) => {
 const handleContextMenuShow = (event, tab, parentClass) => {
   console.log('SessionsRemote.vue: handleContextMenuShow(): parentClass:', parentClass)
   const containerSelector = '.panel-container'
-  const scrollContainerSelector = '.lists-container'
-  // Calculate position using the utility function
+  const scrollContainerSelector = '.sessions-container'
+  // calculate position using the utility function
   const { x, y } = calculateContextMenuPos({
     event,
     containerSelector,
@@ -518,18 +510,15 @@ const handleContextMenuShow = (event, tab, parentClass) => {
     accountForScroll: false // TabsRemote uses scroll-aware positioning
   })
 
-  // Update context menu state
+  // update context menu state
   contextMenu.value = { show: true, x, y, tab }
-
   event.preventDefault()
 }
 
-// Single context menu action handler
+// single context menu action handler
 const handleContextMenuAction = async (event) => {
   const { action, tab, tabs, selectedCount, hasSelection } = event
-  
   contextMenuLoading.value = { action, isLoading: true }
-  
   try {
     switch (action) {
       case 'open':
@@ -540,20 +529,24 @@ const handleContextMenuAction = async (event) => {
         break
         
       case 'edit-tags':
-        // Get current tag IDs for the tab
-        const tagsInitId = tab.tags_id || []
-        
-        // Convert tag IDs to tag names for display
+        // get current tag IDs for the tab from the reactive store using fast lookup
+        // to ensure we have the most up-to-date data after any recent updates
+        const currentTabInfo = tabsRemoteStore.getTabRemoteById(tab.id)
+        const currentTab = currentTabInfo ? currentTabInfo.tab : null
+        const tagsIdInit = currentTab ? (currentTab.tags_id || []) : (tab.tags_id || [])
+        console.warn('SessionsRemote.vue: handleContextMenuAction(): tagsIdInit:', tagsIdInit)
+
+        // convert tag IDs to tag names for display
         const tagsInit = []
         
-        if (tagsInitId.length > 0) {
+        if (tagsIdInit.length > 0) {
           try {
-            // Fetch all tags in a single request
-            const result = await tagsStore.getTagsById(tagsInitId)
+            // fetch all tags in a single request
+            const result = await tagsStore.getTagsById(tagsIdInit)
             if (!result.is_success) {
               console.warn('Failed to get tags:', result.message)
             } else {
-              // Add all returned tags to tagsInit
+              // add all returned tags to tagsInit
               tagsInit.push(...result.data)
             }
           } catch (error) {
@@ -655,7 +648,7 @@ const { handleGridClick, handleGridDoubleClick, handleGridContextMenu } = create
     }
   },
   onTabRemove: handleTabRemove,
-  tabsData: displayData,
+  tabsData: dataDisplay,
   source: 'remote'
 })
 
@@ -741,9 +734,9 @@ const getLastTabs = (tabs, count) => {
   return tabArray.slice(-count)
 }
 
-// Update fast lookup map when displayData changes
+// Update fast lookup map when dataDisplay changes
 const updateRemoteTabsMap = () => {
-  updateTabsMap(displayData, 'remote')
+  updateTabsMap(dataDisplay, 'remote')
 }
 
 // watch refresh count to trigger refresh when button is clicked
@@ -753,8 +746,8 @@ watch(refreshCount, (newCount, oldCount) => {
   }
 })
 
-// Watch for changes in displayData to update the fast lookup map
-watch(displayData, updateRemoteTabsMap, { immediate: true })
+// Watch for changes in dataDisplay to update the fast lookup map
+watch(dataDisplay, updateRemoteTabsMap, { immediate: true })
 
 // Watch for search mode changes from parent
 watch(() => props.searchMode, (newSearchMode) => {
@@ -775,7 +768,7 @@ const getVisibleSessionAreaId = () => {
   // Choose scroll container based on search mode
   const scrollContainer = isSearchMode.value 
     ? document.querySelector('.content-body') 
-    : document.querySelector('.lists-container')
+    : document.querySelector('.sessions-container')
   if (!scrollContainer) return null
   
   const scrollTop = scrollContainer.scrollTop
@@ -830,7 +823,7 @@ const scrollToSession = (sessionId) => {
   // Choose scroll container based on search mode
   const scrollContainer = isSearchMode.value 
     ? document.querySelector('.content-body') 
-    : document.querySelector('.lists-container')
+    : document.querySelector('.sessions-container')
   if (!scrollContainer) {
     console.warn('scrollToSession(): Scroll container not found')
     return
@@ -878,7 +871,7 @@ const updateSessionPositions = () => {
     // Choose scroll container based on search mode
     const scrollContainer = isSearchMode.value 
       ? document.querySelector('.content-body') 
-      : document.querySelector('.lists-container')
+      : document.querySelector('.sessions-container')
     if (scrollContainer) {
       const scrollRect = scrollContainer.getBoundingClientRect()
       const relativeTop = rect.top - scrollRect.top + scrollContainer.scrollTop
@@ -914,7 +907,7 @@ onMounted(async () => {
   // Choose scroll container based on search mode
   const scrollContainer = isSearchMode.value 
     ? document.querySelector('.content-body') 
-    : document.querySelector('.lists-container')
+    : document.querySelector('.sessions-container')
   if (scrollContainer) {
     scrollContainer.addEventListener('scroll', onScrollEvent)
     // Initial position update
@@ -962,7 +955,7 @@ onUnmounted(() => {
   // Choose scroll container based on search mode
   const scrollContainer = isSearchMode.value 
     ? document.querySelector('.content-body') 
-    : document.querySelector('.lists-container')
+    : document.querySelector('.sessions-container')
   if (scrollContainer) {
     scrollContainer.removeEventListener('scroll', onScrollEvent)
   }
@@ -1100,7 +1093,7 @@ defineExpose({
   background-color: #1557b0;
 }
 
-.lists-container {
+.sessions-container {
   position: relative;
   flex: 1;
   overflow-y: auto;
@@ -1108,8 +1101,8 @@ defineExpose({
   padding-bottom: 200px; /* Extra space for context menus */
 }
 
-/* Search mode: remove scroll from lists-container */
-.tabs-remote-container.search-mode .lists-container {
+/* Search mode: remove scroll from sessions-container */
+.tabs-remote-container.search-mode .sessions-container {
   overflow-y: visible;
   height: auto;
   padding-bottom: 0; /* No padding in search mode - handled by content-body */

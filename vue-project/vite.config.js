@@ -3,6 +3,34 @@ import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
+import { copyFileSync, existsSync } from 'fs'
+
+// Custom plugin to copy user config files
+const copyUserConfigPlugin = () => {
+  return {
+    name: 'copy-user-config',
+    writeBundle() {
+      // Copy user config files to dist directory
+      const configFiles = ['user.config.js', 'user.config.0.js']
+      
+      configFiles.forEach(filename => {
+        const srcPath = resolve(__dirname, filename)
+        const destPath = resolve(__dirname, 'dist', filename)
+        
+        if (existsSync(srcPath)) {
+          try {
+            copyFileSync(srcPath, destPath)
+            console.log(`Copied ${filename} to dist directory`)
+          } catch (error) {
+            console.warn(`Failed to copy ${filename}:`, error.message)
+          }
+        } else {
+          console.warn(`Config file ${filename} not found, skipping copy`)
+        }
+      })
+    }
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ command }) => ({
@@ -11,6 +39,7 @@ export default defineConfig(({ command }) => ({
   plugins: [
     vue(),
     vueDevTools(),
+    copyUserConfigPlugin(),
   ],
   resolve: {
     alias: {

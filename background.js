@@ -5,15 +5,16 @@ let userConfig = null;
 async function loadUserConfig() {
 	if (userConfig) return userConfig; // Return cached config if already loaded
 	try {
-		// Try to import from _user.config.js first (user-specific settings)
+		// import from user.config.js first (user-specific settings)
 		const { userConfig: config } = await import('./vue-project/user.config.js');
 		userConfig = config;
-		console.log('Loaded configuration from _user.config.js');
+		console.log('Loaded configuration from user.config.js');
 		return userConfig;
 	} catch (error) {
 		try {
-			// Try to import from _user.config.js first (user-specific settings)
-			const { userConfig: config } = await import('./vue-project/user.config.js');
+			// FALLBACK: import from user.config.0.js(user-specific settings)
+				// this is used during development. user.config.
+			const { userConfig: config } = await import('./vue-project/user.config.0.js');
 			userConfig = config;
 			console.log('Loaded configuration from user.config.0.js');
 			return userConfig;

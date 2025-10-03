@@ -8,11 +8,11 @@ export const useTagsEdit = defineStore('tagsEdit', () => {
   const tagsInit = ref([])
   const renameMode = ref(false)
   const tagToRename = ref(null)
-  
-  // Actions
+
+
   const openTagsEdit = (tabData, _tagsInit = []) => {
     tab.value = tabData
-    // console.log('TagsEdit.js: openTagsEdit(): initialTags:', _tagsInit)
+    // console.log('TagsEdit.js: openTagsEdit(): _tagsInit:', _tagsInit)
     tagsInit.value = _tagsInit
     renameMode.value = false
     tagToRename.value = null

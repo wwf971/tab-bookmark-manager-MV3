@@ -80,14 +80,20 @@ body {
 .tab-grid {
   position: relative; /* Add this to make absolute positioning work */
   display: grid;
-  padding: 8px;
+  padding: 0;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 2px;
+  gap: 0;
   /* Performance optimizations */
   will-change: transform;
   transform: translateZ(0); /* Force GPU acceleration */
+  overflow-y: visible;
 }
 
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #202124;
+}
 
 .tab-item-virtual {
   display: flex;
@@ -351,25 +357,25 @@ body {
 }
 
 .tab-card.browser-active-tab {
-  border: 2px solid var(--tab-active-color) !important;        /* Blue border for browser's active tab */
+  border: 1px solid var(--tab-active-color) !important;        /* Blue border for browser's active tab */
   background-color: #e8f0fe !important;
 }
 
 .tab-card.browser-last-active-tab {
-  border: 2px dashed var(--tab-active-color) !important;       /* Dashed blue border for browser's last active tab */
+  border: 1px dashed var(--tab-active-color) !important;       /* Dashed blue border for browser's last active tab */
   background-color: #e8f0fe !important;
 }
 
 .tab-card.browser-selected-tab {
-  border: 2px solid var(--tab-browser-selected-color);
-  border-top: 2px solid var(--tab-browser-selected-color) !important;    /* Orange top border for browser-selected tabs (highlighted) */
+  border: 1px solid var(--tab-browser-selected-color);
+  border-top: 1px solid var(--tab-browser-selected-color) !important;    /* Orange top border for browser-selected tabs (highlighted) */
 }
 
 /* Special styling for different tab states */
 .tab-card.ui-selected-tab{
-  border: 2px solid var(--tab-ui-selected-color);  /* Green border for UI-selected tabs */
-  /* border-right: 2px solid var(--tab-ui-selected-color) !important; */
-  border-bottom: 2px solid var(--tab-ui-selected-color) !important; /* Green bottom border for UI-selected tabs */
+  border: 1px solid var(--tab-ui-selected-color);  /* Green border for UI-selected tabs */
+  /* border-right: 1px solid var(--tab-ui-selected-color) !important; */
+  border-bottom: 1px solid var(--tab-ui-selected-color) !important; /* Green bottom border for UI-selected tabs */
 }
 
 .tab-item-virtual.ui-selected-tab {
@@ -401,11 +407,19 @@ body {
   align-items: center;
   padding: 12px;
   border-bottom: 1px solid #e9ecef;
+  user-select: none;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #111827;
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   color: #202124;
 }
@@ -415,21 +429,6 @@ h4.text-bold{
   align-items: center;
   justify-content: center;
   margin: 0;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px;
-  background: #f8f9fa;
-  border-radius: 6px;
-}
-
-.modal-header h3 {
-  margin: 0;
-  color: #202124;
-  font-size: 16px;
 }
 
 .modal-backdrop {
@@ -486,28 +485,7 @@ h4.text-bold{
   border: 1px solid #c4e7d1;
 }
 
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px;
-  background-color: #d4e7f0; /* light blue grey */
-}
 
-.modal-header h3 {
-  margin: 0;
-  color: #333;
-  font-size: 18px;
-  font-weight: 500;
-  flex: 1;
-}
-
-.modal-header h2 {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #111827;
-}
 
 .modal-close-button {
   background: none;

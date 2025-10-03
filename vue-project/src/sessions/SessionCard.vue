@@ -7,7 +7,7 @@
     @contextmenu="$emit('contextmenu', $event)"
   >
     <div class="session-card-content">
-      <div style="display: flex; gap: 4px;">
+      <div style="display: flex; gap: 4px; justify-content: flex-start;">
         <div class="session-card-name">
           {{ sessionName }}
         </div>
@@ -65,9 +65,9 @@ const emit = defineEmits(['click', 'contextmenu'])
 <style scoped>
 .session-card {
   padding: 6px;
-  margin-bottom: 0px;
+  margin: 0;
   border: 1px solid #e1e3e1;
-  border-radius: 8px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.2s ease;
   background-color: white;
@@ -108,7 +108,6 @@ const emit = defineEmits(['click', 'contextmenu'])
 
 
 .session-card-count {
-  font-family: 'Courier New', 'Monaco', 'Menlo', monospace;
   font-size: 11px;
   font-weight: 500;
   color: #9aa0a6;

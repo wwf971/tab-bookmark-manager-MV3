@@ -215,8 +215,6 @@ const gridTemplateColumns = computed(() => {
   }
 })
 
-// computed grid gap
-const gridGap = computed(() => '8px')
 
 // computed minimum item width
 const minItemWidth = computed(() => 200)

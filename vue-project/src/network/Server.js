@@ -7,7 +7,7 @@ import { ref, computed, reactive, watch } from 'vue'
 import axios from 'axios'
 
 // import configuration loading function
-import { loadUserConfig } from '../../../js/common.js'
+import { loadUserConfig } from '@/utils/loadUserConfig.js'
 
 // create an axios instance with default config
 const axiosInstance = axios.create({

@@ -582,7 +582,7 @@ const handleTagsEditSaved = (data) => {
   
   // Update the tab object in TabsRemote store with the new tags
   if (data.tab && data.tab.id) {
-    tabsRemoteStore.updateTabInLocal(data.tab.id, {
+    tabsRemoteStore.updateTabInLocalCache(data.tab.id, {
       tags_id: data.tags_id,
       tags_name: data.tags_name
     })
@@ -705,13 +705,12 @@ const requestUploadSingleTab = async (destination='url') => {
         // Get current tags from TagsSelect component
         const tagsSelected = tagsSelectRef.value?.getCurrentTags() || { tags_id: [], tags_name: [] }
         
-        const result = await tabsRemoteStore.uploadTabToServer(tab, {
+        const result = await networkRequest.uploadTabToServer(tab, {
             task,
             tags_id: tagsSelected.tags_id,
             tags_name: tagsSelected.tags_name,
             comment: comment.value
         })
-        console.log('UploadTab.vue: requestUploadSingleTab(): result:', result)
 
         if (result.is_success) {
             status.value = 'Upload successful!'
@@ -829,6 +828,7 @@ const getTabsToUpload = async () => {
 }
 
 import {
+  uploadTabToServer,
   uploadTabsToRemote
 } from '@/sessions-remote/SessionsRemoteRequest'
 
@@ -881,22 +881,18 @@ const requestUploadTabs = async (upload_as_type='url', upload_manner='one_by_one
 
                   // Get current tags from TagsSelect component
                   const tagsSelected = tagsSelectRef.value?.getCurrentTags() || { tags_id: [], tags_name: [] }
-                  console.log('UploadTab.vue: requestUploadTabs(): tagsSelected:', tagsSelected)
-                  const result = await tabsRemoteStore.uploadTabToServer({tab,
-                      options: {
-                        task,
-                        tags_id: tagsSelected.tags_id, // tags already existing on server
-                        tags_name: tagsSelected.tags_name, // tags that will be newly created
-                        comment: comment.value
-                      },
-                      fetchTabsRemoteRecent: true
+                  
+                  const result = await uploadTabToServer(tab, {
+                      task,
+                      tags_id: tagsSelected.tags_id,
+                      tags_name: tagsSelected.tags_name,
+                      comment: comment.value
                   })
-                  console.log('UploadTab.vue: requestUploadTabs(): result:', result)
 
                   if (result.is_success) {
                       successCount++
                       successfulTabs.push(tab)
-  
+                      
                       // Update intermediate status
                       status.value = `SUCCESS: ${successCount}/${tabsOpenNumTotal} FAIL: ${failCount}/${tabsOpenNumTotal}`
                       statusClass.value = successCount > 0 ? 'success' : ''
@@ -923,7 +919,7 @@ const requestUploadTabs = async (upload_as_type='url', upload_manner='one_by_one
               }
           }
           
-          // final status update
+          // Final status update
           if (failCount === 0) {
               status.value = `SUCCESS: ${successCount}/${tabsOpenNumTotal} tabs uploaded successfully!`
               statusClass.value = 'success'

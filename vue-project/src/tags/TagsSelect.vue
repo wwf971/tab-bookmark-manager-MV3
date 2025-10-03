@@ -723,9 +723,8 @@ const handleRenameTag = (tag) => {
   gap: 6px;
 }
 
-
 .tags-selected {
-  margin-top: 12px;
+  margin-top: 0px;
 }
 
 .tags-selected h5 {

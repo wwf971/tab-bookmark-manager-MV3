@@ -188,7 +188,7 @@ const handleSaveTags = async () => {
       setStatus('Tags saved successfully!', 'success')
       let tags_id = result.data.tags_id
       let tags_name = result.data.tags_name
-      // Emit saved event with the updated tags
+      // emit saved event with the updated tags
       emit('tags-saved', {
         tab: tab.value,
         tags_id: tags_id,
@@ -245,7 +245,6 @@ watch(showModal, (showModalNew) => {
   if (showModalNew) { // the modal is opened
     status.value = ''
     statusClass.value = ''
-    
   }
 })
 

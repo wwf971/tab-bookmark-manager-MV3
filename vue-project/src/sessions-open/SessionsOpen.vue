@@ -61,7 +61,6 @@
             :style="{ 
               display: 'grid',
               gridTemplateColumns: gridTemplateColumns,
-              gap: gridGap,
               gridAutoRows: 'min-content'
             }"
             @click="handleGridClick"
@@ -83,6 +82,10 @@
               :source="'open'"
               :default-icon="defaultIcon"
               :class="{ 'recent-tab': isFilterMode && filterList.includes('recent') && isRecentTab(tab, window.id) }"
+              :draggable="shouldTabCardBeDraggable"
+              @dragstart="handleTabDragStart($event, tab, window.id)"
+              @drag="handleTabDrag"
+              @dragend="handleTabDragEnd"
             />
           </div>
 
@@ -241,6 +244,7 @@ import TabCard from '@/tabs/TabCard.vue'
 import SessionsOpenHistory from './SessionsOpenHistory.vue'
 import TabsContextMenu from '@/tabs/TabsContextMenu.vue'
 import SessionsOpenFilter from './SessionsOpenFilter.vue'
+import { TabDragManager } from '@/sessions/DragUtils.js'
 
 // Props
 const props = defineProps({
@@ -395,8 +399,6 @@ const gridTemplateColumns = computed(() => {
   }
 })
 
-// computed grid gap
-const gridGap = computed(() => '8px')
 
 // computed minimum item width
 const minItemWidth = computed(() => 200)
@@ -694,6 +696,62 @@ const getLastTabs = (tabs, count) => {
   return tabs.slice(-count)
 }
 
+// Drag and drop functionality
+const tabDragManager = ref(new TabDragManager())
+
+const shouldTabCardBeDraggable = computed(() => {
+  // Only allow drag in normal mode (not search mode, not filter mode)
+  // And only in TabsBased display mode
+  const displayMode = panelDisplayRef.value?.selectItems?.displayMode?.value || 'TabsBased'
+  return !isSearchMode.value && !isFilterMode.value && displayMode === 'TabsBased'
+})
+
+// Drag event handlers
+const handleTabDragStart = (event, tab, windowId) => {
+  if (!shouldTabCardBeDraggable.value) {
+    event.preventDefault()
+    return
+  }
+  
+  const tabElement = event.target.closest('[data-tab-id]')
+  if (!tabElement) {
+    event.preventDefault()
+    return
+  }
+  
+  console.log('Starting drag for tab:', tab.id, 'in window:', windowId)
+  
+  // initialize drag with DragUtils
+  const success = tabDragManager.value.onDragStart(tabElement, tab, windowId)
+  if (!success) {
+    event.preventDefault()
+    return
+  }
+  
+  // Set drag effect
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', tab.id.toString())
+}
+
+const handleTabDrag = (event) => {
+  if (!tabDragManager.value.isDragging()) return
+  
+  // Handle drag movement
+  tabDragManager.value.handleDragMove(event)
+}
+
+const handleTabDragEnd = async (event) => {
+  // Always handle drag end, even if isDragging() returns false
+  await tabDragManager.value.handleDragEnd(event)
+}
+
+const handleGridMouseLeave = () => {
+  // Clean up any drag state if mouse leaves the grid area
+  if (tabDragManager.value.isDragging()) {
+    tabDragManager.value.cleanupDrag()
+  }
+}
+
 // scroll monitoring functions (component-specific)
 const getVisibleWindowId = () => {
   if (typeof document === 'undefined') return null
@@ -852,6 +910,9 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
   
   removeScrollListener()
+  
+  // cleanup drag state
+  tabDragManager.value.cleanupDrag()
   
   // cleanup store event listeners
   cleanupTabsOpen()
@@ -1224,5 +1285,37 @@ defineExpose({
 .windows-container,
 .tabs-open-container {
   position: relative;
+}
+
+/* Drag and drop styles */
+.tab-grid {
+  position: relative; /* Needed for absolute positioning of drop indicator */
+}
+
+/* Drag drop indicator is created dynamically by DragUtils.js */
+:deep(.drag-drop-indicator) {
+  position: absolute;
+  width: 3px;
+  background-color: #1a73e8;
+  border-radius: 2px;
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 0 4px rgba(26, 115, 232, 0.5);
+  transition: all 0.1s ease;
+}
+
+/* Visual feedback for dragging tabs */
+.tab-card[draggable="true"] {
+  cursor: grab;
+}
+
+.tab-card[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+/* Style adjustments for dragged tabs */
+.tab-card.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
 }
 </style>

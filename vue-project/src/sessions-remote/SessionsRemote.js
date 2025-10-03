@@ -34,9 +34,27 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
   const sessionsRemote = ref({}) // { sessionId: { name: string, tabs: { tabId: { url, text, time_create, isUiSelected, ... } } } }
   // recent remote tabs - using array for simpler iteration
   const tabsRemoteRecent = ref([]) // Array of tab objects
-  
+    
   // if false, fetch tabs only during search
   const isFetchAllTabsFromRemoteOnInit = ref(false) // its value come from Settings.js
+
+  // user-selected tabs
+  const tabsRemoteUiSelected = []
+    
+  // fast lookup map for tab objects (tabId -> { tab, sessionId })
+  const tabsMapRemote = ref(new Map())
+    // IMPORTANT: if a tab is updated, don't forget to update tabsMapRemote to make it always refer to latest tab object
+
+  const getTabRemoteById = (tabId) => {
+    const tabInfo = tabsMapRemote.value.get(tabId)
+    if (tabInfo) {
+      return {
+        tab: tabInfo.tab,
+        sessionId: tabInfo.sessionId
+      }
+    }
+    return null
+  }
 
   // switch to fetchAllTabsMode: all remote tabs from remote server --load into--> sessionsRemote
   const initFetchAllTabsMode = async () => {
@@ -82,12 +100,7 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
     }
   })
 
-  // user-selected tabs
-  const tabsRemoteUiSelected = []
 
-  // fast lookup map for tab objects (tabId -> { tab, sessionId })
-  const tabsMapRemote = ref(new Map())
-  
 
   
   // filter mode and state
@@ -412,12 +425,28 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
     // fetchTabsRemoteRecent(50)
   }
 
-  const updateTabInLocal = (tabId, updatedData) => {
-    for (const [sessionId, sessionTabs] of Object.entries(sessionsRemote.value)) {
-      if (sessionTabs.tabs && sessionTabs.tabs[tabId]) {
-        sessionsRemote.value[sessionId].tabs[tabId] = { ...sessionTabs.tabs[tabId], ...updatedData }
-        return
-      }
+  const updateTabInLocalCache = (tab_id, updatedData) => {
+    console.warn(`updateTabInLocalCache(): tab_id: ${tab_id}`, "updatedData: ", updatedData)
+    
+    // Use the fast lookup instead of iterating through all sessions
+    const tabInfo = getTabRemoteById(tab_id)
+    if (tabInfo) {
+      const { sessionId } = tabInfo
+      // Update the tab in the main store
+      sessionsRemote.value[sessionId].tabs[tab_id] = { ...sessionsRemote.value[sessionId].tabs[tab_id], ...updatedData }
+      
+      // CRUCIAL: Update the tabsMapRemote with the new tab object reference
+      // This ensures findTabFromElement gets the updated tab object
+      tabsMapRemote.value.set(tab_id, {
+        tab: sessionsRemote.value[sessionId].tabs[tab_id],
+        sessionId: sessionId
+      })
+
+      console.log(`updateTabInLocalCache(): tab after update:`, sessionsRemote.value[sessionId].tabs[tab_id])
+      console.warn(`updateTabInLocalCache(): is_tab_updated: true`)
+    } else {
+      console.warn(`updateTabInLocalCache(): tab ${tab_id} not found in tabsMapRemote`)
+      console.warn(`updateTabInLocalCache(): is_tab_updated: false`)
     }
   }
 
@@ -684,7 +713,7 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
           tags_id: tab.tags_id || [],
           tags_name: tab.tags_name || [],
           isUiSelected: false,
-          sessionId: sessionId,
+          session_id: sessionId,
           ...tab
         }
         
@@ -726,12 +755,13 @@ export const useTabsRemote = defineStore('tabsRemote', () => {
     sessionsRemoteNum,
 
     // Methods
+    getTabRemoteById,
     loadRemoteTabs,
     fetchTabsRemoteRecent,
     removeTabRemote,
     removeTabRemoteFromLocalCache,
     addTabRemoteInLocal,
-    updateTabInLocal,
+    updateTabInLocalCache,
     clearCache,
     forceRefresh,
 

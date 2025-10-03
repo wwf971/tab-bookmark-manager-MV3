@@ -2,7 +2,7 @@
   <div class="tab-manager">
     <div>
       <div style="display: flex; align-items: center; gap: 10px;">
-        <div>Tab Manager</div>
+        <div class="page-title">Tab Manager</div>
         <TabsPin />
       </div>
     </div>
@@ -184,7 +184,7 @@ const handleTabClose = async (tab) => {
 
 const handleShowContextMenu = (event) => {
   // context menu events are handled by the TabsMainWindow component internally
-  console.log('TabManager.vue: handleShowContextMenu:', event)
+  console.log('TabsManager.vue: handleShowContextMenu:', event)
 }
 
 const handleUploadSingleTab = async (tab) => {
@@ -192,18 +192,18 @@ const handleUploadSingleTab = async (tab) => {
   try {
     const result = await networkRequest.uploadTabToServer(tab)
     if (result.is_success) {
-      console.log('TabManager.vue: Single tab uploaded successfully')
+      console.log('TabsManager.vue: Single tab uploaded successfully')
       // Optionally show success notification
     } else {
-      console.error('TabManager.vue: Error uploading single tab:', result.message)
+      console.error('TabsManager.vue: Error uploading single tab:', result.message)
     }
   } catch (error) {
-    console.error('TabManager.vue: Error uploading single tab:', error)
+    console.error('TabsManager.vue: Error uploading single tab:', error)
   }
 }
 
 const onOpenSettings = () => {
-  console.error('TabManager.vue: onOpenSettings()')
+  console.error('TabsManager.vue: onOpenSettings()')
 }
 
 
@@ -217,7 +217,7 @@ const tagsManagerInitialTab = ref('sets')
 const tagsManagerTagToRename = ref(null)
 const openUploadModal = () => {
   tabsToUpload.value = tabsOpenStore.tabsOpenUiSelected
-  // console.log('TabManager.vue: openUploadModal(): tabsToUpload.length:', tabsToUpload.value.length)
+  // console.log('TabsManager.vue: openUploadModal(): tabsToUpload.length:', tabsToUpload.value.length)
   showUploadModal.value = true
 }
 
@@ -242,11 +242,10 @@ const handleUploadComplete = (result) => {
 // Tags Edit event handlers
 const handleTabTagsSaved = (data) => {
   console.log('Tags saved:', data)
-  
 
   // update the tab object in TabsRemote store with the new tags
   if (data.tab && data.tab.id) {
-    tabsRemoteStore.updateTabInLocal(data.tab.id, {
+    tabsRemoteStore.updateTabInLocalCache(data.tab.id, {
       tags_id: data.tags_id,
       tags_name: data.tags_name
     })
@@ -268,7 +267,7 @@ const handleOpenTagsManager = (data) => {
   tagsManagerInitialTab.value = data.initialTab || 'sets'
   tagsManagerTagToRename.value = data.tag || null
   showTagsManager.value = true
-  // console.log('TabManager.vue: handleOpenTagsManager(): data:', data)
+  // console.log('TabsManager.vue: handleOpenTagsManager(): data:', data)
 }
 
 const closeTagsManager = () => {

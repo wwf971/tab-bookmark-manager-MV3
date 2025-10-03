@@ -335,10 +335,10 @@ const handleContextMenuAction = async (event) => {
         
       case 'edit-tags':
         // Get current tag IDs for the tab
-        const tagsInitId = tab.tags_id || []
+        const tagsIdInit = tab.tags_id || []
         
         // Convert tag IDs to tag objects for display
-        const result = await tagsStore.getTagsById(tagsInitId)
+        const result = await tagsStore.getTagsById(tagsIdInit)
         console.log('TabsSearchResults.vue: handleContextMenuEditTags: result:', result)
         if(!result.is_success) {
           console.error('TabsSearchResults.vue: handleContextMenuEditTags: error getting tags:', result.message)

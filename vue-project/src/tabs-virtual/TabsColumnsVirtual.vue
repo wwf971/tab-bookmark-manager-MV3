@@ -371,7 +371,7 @@ const handleCancelUpload = () => {
   overflow: hidden;
 }
 
-.column-content :deep(.lists-container) {
+.column-content :deep(.sessions-container) {
   padding: 0; /* Remove extra padding in column context */
   height: 100%;
   overflow-y: auto;

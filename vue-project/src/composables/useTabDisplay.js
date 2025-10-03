@@ -24,16 +24,6 @@ export function useTabDisplay() {
     }
   })
 
-  const gridGap = computed(() => {
-    // switch (columnsPerRow.value) {
-    //   case 1: return '8px'
-    //   case 2: return '12px'
-    //   case 3: return '12px'
-    //   case 4: return '12px'
-    //   default: return '12px'
-    // }
-    return '2px'
-  })
 
   const minItemWidth = computed(() => {
     // Minimum width for each grid item to prevent them from becoming too small
@@ -138,7 +128,6 @@ export function useTabDisplay() {
     
     // Computed
     gridTemplateColumns,
-    gridGap,
     minItemWidth,
     
     // Methods

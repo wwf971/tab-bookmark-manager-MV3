@@ -107,8 +107,8 @@ const handleIconError = (event) => {
 <style scoped>
 .tab-card {
   background-color: #f8f9fa;
-  border: 2px solid #dadce0;
-  border-radius: 6px;
+  border: 1px solid #dadce0;
+  border-radius: 0;
   cursor: pointer;
   /* Remove all transitions for better performance */
   position: relative;
@@ -174,6 +174,7 @@ const handleIconError = (event) => {
   width: 100%;
   gap: 2px;
   min-width: 0;
+  user-select: none;
 }
 
 .tab-icon {

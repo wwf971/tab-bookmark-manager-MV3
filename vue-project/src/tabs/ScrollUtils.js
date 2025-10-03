@@ -33,6 +33,7 @@ const getVisibleSessionGroup = (searchState) => {
   return sessionGroupNameCurrent;
 }
 
+// check visible session area/session card inside the visible session group.
 // in search mode only.
 const getVisibleSessionAreaId = (searchState) => {
   if (!searchState.value.isSearchActive) return null

@@ -14,19 +14,19 @@ export async function loadUserConfig() {
     if (userConfig) return userConfig; // Return cached config if already loaded
     
     try {
-        // try to import from _user.config.js first (user-specific settings)
-        const filePathConfig = '../vue-project/' + '_user.config.js';
+        // try to import from user.config.js first (user-specific settings)
+        const filePathConfig = '../vue-project/' + 'user.config.js';
             // use string concatenation to avoid build-time resolution
         const { userConfig: config } = await import(filePathConfig);
         userConfig = config;
-        console.log('Loaded configuration from _user.config.js');
+        console.log('Loaded configuration from user.config.js');
         return userConfig;
     } catch (error) {
-        // If _user.config.js doesn't exist or fails to load, fallback to user.config.js
+        // If user.config.js doesn't exist or fails to load, fallback to user.config.0.js
         try {
-            const { userConfig: config } = await import('../vue-project/user.config.js');
+            const { userConfig: config } = await import('../vue-project/user.config.0.js');
             userConfig = config;
-            console.log('Loaded configuration from user.config.js (fallback)');
+            console.log('Loaded configuration from user.config.0.js (fallback)');
             return userConfig;
         } catch (fallbackError) {
             console.error('Failed to load any configuration file:', fallbackError);
